@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebApp de Gestion des Exigences ISO 17025</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .requirement-card {
+            transition: all 0.3s ease;
+            scroll-margin-top: 100px;
+        }
+        .toc-link.active {
+            color: #2563eb;
+            font-weight: 600;
+            background-color: #eff6ff;
+            border-left-color: #2563eb;
+        }
+        .toc-link {
+            border-left: 2px solid transparent;
+            transition: all 0.2s ease-in-out;
+        }
+        #modal-backdrop {
+            transition: opacity 0.3s ease;
+        }
+        #modal-panel {
+            transition: all 0.3s ease;
+        }
+        .comment-display-container pre {
+            white-space: pre-wrap; /* Ensures line breaks are respected */
+            word-break: break-word;
+            font-family: inherit;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white/90 backdrop-blur-lg shadow-sm sticky top-0 z-40 w-full border-b border-gray-200">
+        <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex items-center">
+                    <svg class="h-8 w-8 text-blue-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    <h1 class="text-2xl font-bold text-gray-900">ISO 17025 - SMQ</h1>
+                </div>
+                <div class="flex-1 max-w-lg mx-8">
+                    <input type="text" id="searchInput" placeholder="Rechercher une exigence ou un document..." class="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="exportJsonBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-semibold text-sm flex items-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        <span>Exporter en JSON</span>
+                    </button>
+                    <button id="importJsonBtn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition font-semibold text-sm flex items-center space-x-2">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H5.5z" /><path d="M9 13.5a1 1 0 011 1v1.5a1 1 0 11-2 0V14.5a1 1 0 011-1z" /></svg>
+                        <span>Importer un JSON</span>
+                    </button>
+                    <input type="file" id="jsonFileInput" class="hidden" accept=".json">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div class="lg:flex lg:space-x-8">
+            <!-- Table of Contents -->
+            <nav class="lg:w-1/4 mb-8 lg:mb-0 lg:sticky lg:top-24 self-start">
+                 <div class="bg-white p-4 rounded-lg shadow-sm">
+                    <h2 class="text-xl font-semibold mb-4 pb-2 border-b border-gray-300 text-gray-800">Sommaire</h2>
+                    <ul id="toc" class="space-y-1 max-h-[calc(100vh-15rem)] overflow-y-auto">
+                        <!-- TOC links will be injected here by JS -->
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="lg:w-3/4">
+                <div id="requirements-container" class="space-y-4">
+                    <!-- Requirements will be injected here by JS -->
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Modal for document selection -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden">
+        <div id="modal-panel" class="absolute bg-white rounded-lg shadow-xl w-full max-w-2xl top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-xl font-bold">Gérer les documents associés</h3>
+                <button id="modal-close-btn" class="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <div class="mb-4">
+                <input type="text" id="modal-search" placeholder="Filtrer les documents..." class="w-full px-3 py-2 border rounded-md">
+            </div>
+            <div id="modal-doc-list" class="max-h-96 overflow-y-auto space-y-2 pr-2">
+                <!-- Document checkboxes will be injected here -->
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="modal-cancel-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition font-semibold">Annuler</button>
+                <button id="modal-save-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-semibold">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const requirementsData = [
+            { id: '4', title: '4. Exigences générales', children: [
+                { id: '4.1', title: '4.1 Impartialité', children: [
+                    { id: '4.1.1', title: '4.1.1', text: ['Les activités de laboratoire doivent être réalisées avec impartialité, structurées et gérées de manière à préserver l\'impartialité.']},
+                    { id: '4.1.2', title: '4.1.2', text: ['La direction du laboratoire doit s\'engager à exercer ses activités en toute impartialité.']},
+                    { id: '4.1.3', title: '4.1.3', text: ['Le laboratoire doit être responsable de l\'impartialité de ses activités et ne doit pas permettre que des pressions commerciales, financières ou d\'autres pressions, compromettent cette impartialité.']},
+                    { id: '4.1.4', title: '4.1.4', text: ['Le laboratoire doit régulièrement identifier les risques susceptibles de porter atteinte à son impartialité. Cette identification doit inclure les risques découlant de ses activités ou de ses relations, ou des relations de son personnel. Cependant, ces relations ne présentent pas nécessairement un risque pour l\'impartialité du laboratoire.']},
+                    { id: '4.1.5', title: '4.1.5', text: ['Si un risque pour l\'impartialité est identifié, le laboratoire doit pouvoir démontrer comment il l\'élimine ou le réduit au minimum.']}
+                ]},
+                { id: '4.2', title: '4.2 Confidentialité', children: [
+                    { id: '4.2.1', title: '4.2.1', text: ['Dans le cadre d\'accords juridiquement exécutoires, le laboratoire doit être responsable de la gestion de toutes les informations obtenues ou générées au cours de ses activités. Le laboratoire doit indiquer au client, à l\'avance, les informations qu\'il a l\'intention de rendre publiques. À l\'exception des informations rendues publiques par le client, ou des cas convenus entre le laboratoire et le client (par exemple dans le but de répondre à des réclamations), toutes les autres informations sont considérées comme exclusives et doivent être traitées comme confidentielles.']},
+                    { id: '4.2.2', title: '4.2.2', text: ['Lorsque le laboratoire est tenu par la loi, ou autorisé par des dispositions contractuelles, à divulguer des informations confidentielles, le client ou la personne concernée doivent être avisés des informations fournies, sauf si la loi l\'interdit.']},
+                    { id: '4.2.3', title: '4.2.3', text: ['Les informations sur le client obtenues auprès de sources autres que le client lui-même (par exemple, plaignant, autorités réglementaires) doivent être maintenues confidentielles entre le client et le laboratoire. Le laboratoire doit préserver la confidentialité du fournisseur (source) de ces informations et son identité ne doit pas être divulguée au client, sauf accord de la source.']},
+                    { id: '4.2.4', title: '4.2.4', text: ['Le personnel, dont tous les membres des comités, les contractants, le personnel d\'organismes externes ou les personnes agissant pour le compte du laboratoire, doit préserver la confidentialité de toutes les informations obtenues ou générées au cours des activités du laboratoire, à l\'exception de ce qui est exigé par la loi.']}
+                ]}
+            ]},
+            { id: '5', title: '5. Exigences structurelles', children: [
+                    {id: '5.1', title: '5.1', text: ['Le laboratoire doit être une entité juridique, ou une partie définie d\'une entité juridique, qui est juridiquement responsable de ses activités de laboratoire.']},
+                    {id: '5.2', title: '5.2', text: ['Le laboratoire doit identifier l\'encadrement qui a la responsabilité générale du laboratoire.']},
+                    {id: '5.3', title: '5.3', text: ['Le laboratoire doit définir et documenter le champ des activités de laboratoire pour lesquelles il se conforme au présent document. Le laboratoire ne doit revendiquer la conformité au présent document que pour ce champ d\'activité, ce qui exclut de fait les activités de laboratoire assurées de façon permanente par des prestataires externes.']},
+                    {id: '5.4', title: '5.4', text: ['Les activités de laboratoire doivent être exécutées de façon à satisfaire aux exigences du présent document, des clients du laboratoire, des autorités réglementaires et des organisations fournissant la reconnaissance. Il s\'agit nécessairement des activités de laboratoire exécutées dans l\'ensemble de ses installations permanentes, des sites éloignés de ses installations permanentes, des installations provisoires ou mobiles associées, ou dans l\'installation d\'un client.']},
+                    {id: '5.5', title: '5.5', text: ['Le laboratoire doit: a) définir la structure organisationnelle et managériale du laboratoire, sa place au sein de toute organisation mère, et les relations entre le management, les opérations techniques et les services support; b) spécifier les responsabilités et les autorités de l\'ensemble du personnel qui dirige, exécute ou vérifie les travaux ayant une incidence sur les résultats des activités de laboratoire; c) documenter ses procédures dans la mesure nécessaire pour assurer la cohérence d\'application de ses activités de laboratoire et la validité des résultats.']},
+                    {id: '5.6', title: '5.6', text: ['Le laboratoire doit avoir un personnel qui, indépendamment de toute autre responsabilité, dispose de l\'autorité et des ressources nécessaires pour accomplir ses fonctions, y compris: a) la mise en œuvre, le maintien et l\'amélioration du système de management; b) l\'identification des écarts par rapport au système de management ou aux procédures relatives à la réalisation des activités de laboratoire; c) l\'engagement d\'actions pour prévenir ou réduire au minimum de tels écarts; d) le signalement à la direction du laboratoire de la performance du système de management et de tout besoin d\'amélioration; e) l\'assurance de l\'efficacité des activités de laboratoire.']},
+                    {id: '5.7', title: '5.7', text: ['La direction du laboratoire doit assurer que: a) la communication relative à l\'efficacité du système de management et à l\'importance de satisfaire aux exigences du client, ainsi qu\'aux autres exigences, est effective; b) l\'intégrité du système de management est maintenue lorsque des modifications du système de management sont planifiées et mises en œuvre.']}
+            ]},
+            { id: '6', title: '6. Exigences relatives aux ressources', children: [
+                 { id: '6.1', title: '6.1 Généralités', text: ['Le laboratoire doit disposer du personnel, des installations, des équipements, des systèmes et des services support nécessaires à la gestion et à la réalisation de ses activités de laboratoire.'] },
+                 { id: '6.2', title: '6.2 Personnel', children: [
+                    { id: '6.2.1', title: '6.2.1', text: ['L\'ensemble du personnel du laboratoire (qu\'il soit interne ou externe) qui pourrait avoir une influence sur les activités de laboratoire doit agir de manière impartiale, être compétent et travailler conformément au système de management du laboratoire.']},
+                    { id: '6.2.2', title: '6.2.2', text: ['Le laboratoire doit documenter les exigences de compétences relatives à chaque fonction ayant une influence sur les résultats des activités de laboratoire, y compris les exigences en matière de niveau d\'études, de qualification(s), de formation, de connaissances techniques, d\'aptitudes et d\'expérience.']},
+                    { id: '6.2.3', title: '6.2.3', text: ['Le laboratoire doit assurer que le personnel possède les compétences nécessaires pour accomplir les activités de laboratoire qui lui sont attribuées et pour évaluer l\'importance des écarts.']},
+                    { id: '6.2.4', title: '6.2.4', text: ['La direction du laboratoire doit communiquer aux membres du personnel leurs tâches, responsabilités et autorités.']},
+                    { id: '6.2.5', title: '6.2.5', text: ['Le laboratoire doit disposer d\'une (de) procédure(s) et conserver des enregistrements relatifs à: a) la détermination des exigences de compétences; b) la sélection du personnel; c) la formation du personnel; d) la supervision du personnel; e) l\'habilitation du personnel; f) la surveillance des compétences du personnel.']},
+                    { id: '6.2.6', title: '6.2.6', text: ['Le laboratoire doit autoriser des membres de son personnel à exécuter des activités de laboratoire spécifiques, comprenant, sans toutefois s\'y limiter, les activités suivantes: a) le développement, la modification, la vérification et la validation de méthodes; b) l\'analyse des résultats, y compris les déclarations de conformité ou les avis et interprétations; c) la présentation des rapports, la revue et l\'approbation des résultats.']}
+                 ]},
+                 { id: '6.3', title: '6.3 Installations et conditions ambiantes', children: [
+                    { id: '6.3.1', title: '6.3.1', text: ['Les installations et les conditions ambiantes doivent être adaptées aux activités de laboratoire et ne doivent pas compromettre la validité des résultats.']},
+                    { id: '6.3.2', title: '6.3.2', text: ['Les exigences relatives aux installations et aux conditions ambiantes nécessaires à l\'exécution des activités de laboratoire doivent être documentées.']},
+                    { id: '6.3.3', title: '6.3.3', text: ['Le laboratoire doit surveiller, maîtriser et enregistrer les conditions ambiantes conformément aux spécifications, méthodes et procédures pertinentes, ou lorsqu\'elles ont une influence sur la validité des résultats.']},
+                    { id: '6.3.4', title: '6.3.4', text: ['Les dispositions de maîtrise des installations doivent être mises en œuvre, surveillées et périodiquement revues et doivent inclure, sans toutefois s\'y limiter: a) l\'accès et l\'utilisation des zones ayant une incidence sur les activités de laboratoire; b) la prévention de la contamination, des interférences ou des influences néfastes sur les activités de laboratoire; c) la séparation effective entre les zones où sont réalisées des activités de laboratoire incompatibles.']},
+                    { id: '6.3.5', title: '6.3.5', text: ['Lorsque le laboratoire réalise des activités de laboratoire dans des sites ou au sein d\'installations qu\'il ne maîtrise pas en permanence, il doit assurer que les exigences relatives aux installations et aux conditions ambiantes du présent document sont satisfaites.']}
+                 ]},
+                 { id: '6.4', title: '6.4 Équipements', children: [
+                     { id: '6.4.1', title: '6.4.1', text: ['Le laboratoire doit avoir accès aux équipements (comprenant, sans toutefois s\'y limiter, les instruments de mesure, logiciels, étalons de mesure, matériaux de référence, données de référence, réactifs et produits consommables ou appareils auxiliaires) nécessaires pour une exécution correcte des activités de laboratoire et pouvant avoir une influence sur les résultats.']},
+                     { id: '6.4.2', title: '6.4.2', text: ['Lorsque le laboratoire utilise un équipement qu\'il ne maîtrise pas en permanence, il doit assurer que les exigences relatives aux équipements du présent document sont satisfaites.']},
+                     { id: '6.4.3', title: '6.4.3', text: ['Le laboratoire doit disposer d\'une procédure pour la manutention, le transport, le stockage, l\'utilisation et la maintenance planifiée des équipements afin d\'en assurer le fonctionnement correct et de prévenir toute contamination ou détérioration.']},
+                     { id: '6.4.4', title: '6.4.4', text: ['Le laboratoire doit vérifier que l\'équipement est conforme aux exigences spécifiées avant d\'être mis ou remis en service.']},
+                     { id: '6.4.5', title: '6.4.5', text: ['Les équipements utilisés pour réaliser les mesures doivent être capables d\'atteindre l\'exactitude de mesure et/ou l\'incertitude de mesure nécessaire pour délivrer un résultat valide.']},
+                     { id: '6.4.6', title: '6.4.6', text: ['Les équipements de mesure doivent être étalonnés lorsque: l\'exactitude ou l\'incertitude de mesure a une incidence sur la validité des résultats fournis, et/ou un étalonnage de l\'équipement est nécessaire pour établir la traçabilité métrologique des résultats fournis.']},
+                     { id: '6.4.7', title: '6.4.7', text: ['Le laboratoire doit établir un programme d\'étalonnage, qui doit être revu et adapté si nécessaire, afin de maintenir la confiance dans le statut de l\'étalonnage.']},
+                     { id: '6.4.8', title: '6.4.8', text: ['Tout équipement exigeant un étalonnage ou dont la période de validité a été fixée doit être étiqueté, codé ou autrement identifié afin de permettre à l\'utilisateur de l\'équipement d\'identifier aisément le statut de l\'étalonnage ou la période de validité.']},
+                     { id: '6.4.9', title: '6.4.9', text: ['Un équipement qui a été l\'objet d\'une surcharge ou d\'une mauvaise manutention, qui donne des résultats douteux ou qui s\'est révélé défectueux ou hors du cadre des exigences spécifiées, doit être mis hors service. Il doit être isolé afin d\'empêcher son utilisation ou être clairement étiqueté ou marqué comme étant hors service jusqu\'à ce que son aptitude à fonctionner correctement ait pu être vérifiée. Le laboratoire doit examiner l\'effet de la défaillance ou de l\'écart par rapport aux exigences spécifiées et doit engager la procédure de gestion des travaux non conformes.']},
+                     { id: '6.4.10', title: '6.4.10', text: ['Lorsqu\'il est nécessaire de procéder à des contrôles intermédiaires pour maintenir la confiance dans la performance de l\'équipement, ils doivent être effectués selon une procédure.']},
+                     { id: '6.4.11', title: '6.4.11', text: ['Lorsque des données d\'étalonnage et de matériaux de référence contiennent des valeurs de référence ou des facteurs de correction, le laboratoire doit assurer la mise à jour et la mise en œuvre de ces valeurs de référence et de ces facteurs de correction, en tant que de besoin, de manière à satisfaire aux exigences spécifiées.']},
+                     { id: '6.4.12', title: '6.4.12', text: ['Le laboratoire doit assurer que des dispositions sont prises contre des réglages non prévus d\'équipement invalidant les résultats.']},
+                     { id: '6.4.13', title: '6.4.13', text: ['Des enregistrements doivent être conservés pour les équipements pouvant avoir une influence sur les activités de laboratoire. Les enregistrements doivent inclure ce qui suit, si applicable: a) l\'identité de l\'équipement, y compris la version du logiciel et du micrologiciel; b) le nom du fabricant, l\'identification du modèle, le numéro de série ou une autre identification unique; c) la preuve de la vérification de la conformité de l\'équipement aux exigences spécifiées; d) l\'emplacement actuel; e) les dates, résultats et copies de rapports et de certificats de tous les étalonnages, réglages et critères d\'acceptation; f) la documentation des matériaux de référence, les résultats, les critères d\'acceptation, les dates pertinentes et la période de validité; g) le plan de maintenance et la maintenance effectuée à ce jour, si elle est pertinente pour la performance de l\'équipement; h) les détails de tout dommage, dysfonctionnement, modification ou réparation de l\'équipement.']}
+                 ]},
+                 { id: '6.5', title: '6.5 Traçabilité métrologique', children: [
+                    { id: '6.5.1', title: '6.5.1', text: ['Le laboratoire doit établir et maintenir la traçabilité métrologique de ses résultats de mesure au moyen d\'une chaîne ininterrompue et documentée d\'étalonnages dont chacun contribue à l\'incertitude de mesure, tout en reliant ces résultats à une référence appropriée.']},
+                    { id: '6.5.2', title: '6.5.2', text: ['Le laboratoire doit assurer la traçabilité des résultats de mesure par rapport au Système international d\'unités (SI) au moyen: a) d\'un étalonnage fourni par un laboratoire compétent; ou b) de valeurs certifiées de matériaux de référence certifiés fournis par un producteur compétent, avec une traçabilité métrologique avérée au SI; ou c) d\'une réalisation directe des unités SI assurée par comparaison directe ou indirecte avec des étalons nationaux ou internationaux.']},
+                    { id: '6.5.3', title: '6.5.3', text: ['Lorsqu\'il est techniquement impossible d\'établir la traçabilité métrologique aux unités SI, le laboratoire doit démontrer la traçabilité métrologique à une référence appropriée, par exemple: a) des valeurs certifiées de matériaux de référence certifiés fournis par un producteur compétent; b) les résultats des procédures de mesure de référence, des méthodes spécifiées ou des normes consensuelles qui sont clairement décrites et acceptées comme fournissant des résultats de mesure adaptés à leur utilisation prévue et assurés par une comparaison appropriée.']}
+                 ]},
+                 { id: '6.6', title: '6.6 Produits et services fournis par des prestataires externes', children: [
+                    { id: '6.6.1', title: '6.6.1', text: ['Le laboratoire doit s\'assurer qu\'il n\'utilise que des produits et services adaptés, lorsqu\'ils sont fournis par des prestataires externes et ont une influence sur les activités de laboratoire, et lorsque ces produits et services sont: a) destinés à être intégrés dans les propres activités de laboratoire du client; b) fournis, en partie ou en totalité, directement au client par le laboratoire, tels que reçus du prestataire externe; c) utilisés pour assister le fonctionnement du laboratoire.']},
+                    { id: '6.6.2', title: '6.6.2', text: ['Le laboratoire doit disposer d\'une procédure et conserver les enregistrements pour: a) définir, revoir et approuver les exigences du laboratoire relatives aux produits et services fournis par des prestataires externes; b) définir les critères d\'évaluation, de sélection, de suivi de performance et de réévaluation des prestataires externes; c) assurer que les produits et services fournis par des prestataires externes sont conformes aux exigences établies par le laboratoire, ou le cas échéant, aux exigences pertinentes du présent document, avant d\'être utilisés ou fournis directement au client; d) entreprendre toute action découlant des évaluations, du suivi de la performance et des réévaluations des prestataires externes.']},
+                    { id: '6.6.3', title: '6.6.3', text: ['Le laboratoire doit communiquer aux prestataires externes les exigences concernant: a) les produits et services à fournir; b) les critères d\'acceptation; c) la compétence, y compris toute qualification requise du personnel; d) les activités que le laboratoire, ou son client, a l\'intention d\'entreprendre dans les locaux du prestataire externe.']}
+                 ]}
+            ]},
+             { id: '7', title: '7. Exigences relatives aux processus', children: [
+                 { id: '7.1', title: '7.1 Revue des demandes, appels d\'offres et contrats', children: [
+                    { id: '7.1.1', title: '7.1.1', text: ['Le laboratoire doit disposer d\'une procédure pour la revue des demandes, des appels d\'offres ou des contrats. La procédure doit assurer que: a) les exigences sont définies, documentées et comprises de manière adéquate; b) le laboratoire dispose de l\'aptitude et des ressources nécessaires pour répondre aux exigences; c) lorsque des prestataires externes sont utilisés, les exigences du 6.6 s\'appliquent et le laboratoire informe le client de l\'activité spécifique de laboratoire qui sera assurée par le prestataire externe et obtient l\'accord du client; d) les méthodes ou procédures appropriées sont sélectionnées et sont capables de répondre aux exigences des clients.']},
+                    { id: '7.1.2', title: '7.1.2', text: ['Si la méthode demandée par le client est jugée inappropriée ou périmée, le laboratoire doit le lui indiquer.']},
+                    { id: '7.1.3', title: '7.1.3', text: ['Lorsque le client demande une déclaration de conformité à une spécification ou à une norme pour l\'essai ou l\'étalonnage [par exemple acceptation/rejet, dans la (les) tolérance(s)/hors tolérance(s)], la spécification ou la norme, ainsi que la règle de décision, doivent être clairement définies. La règle de décision choisie doit être communiquée au client et convenue avec lui, à moins qu\'elle ne soit inhérente à la spécification ou à la norme demandée.']},
+                    { id: '7.1.4', title: '7.1.4', text: ['Toute différence entre la demande ou l\'appel d\'offres et le contrat doit être résolue avant d\'entreprendre les activités de laboratoire. Chaque contrat doit être acceptable à la fois pour le laboratoire et le client. Les écarts demandés par le client ne doivent pas avoir d\'incidence sur l\'intégrité du laboratoire ou sur la validité des résultats.']},
+                    { id: '7.1.5', title: '7.1.5', text: ['Le client doit être informé de tout écart par rapport au contrat.']},
+                    { id: '7.1.6', title: '7.1.6', text: ['Si un contrat est modifié après le début des travaux, le processus de revue de contrat doit être répété et toute modification doit être communiquée à tout le personnel concerné.']},
+                    { id: '7.1.7', title: '7.1.7', text: ['Le laboratoire doit coopérer avec ses clients, ou leurs représentants, dans la clarification de la demande du client et dans la surveillance de l\'exécution des travaux qu\'il réalise.']},
+                    { id: '7.1.8', title: '7.1.8', text: ['Les enregistrements des revues, y compris toutes les modifications significatives, doivent être conservés. Les enregistrements des discussions pertinentes avec un client en relation avec ses exigences ou les résultats des activités de laboratoire doivent également être conservés.']}
+                ]},
+                 { id: '7.2', title: '7.2 Sélection, vérification et validation des méthodes', children: [
+                     { id: '7.2.1', title: '7.2.1 Sélection et vérification des méthodes', children: [
+                        {id: '7.2.1.1', title: '7.2.1.1', text: ['Le laboratoire doit appliquer des méthodes et procédures appropriées pour toutes les activités de laboratoire et, le cas échéant, pour l\'évaluation de l\'incertitude de mesure ainsi que pour les techniques statistiques utilisées pour l\'analyse de données.']},
+                        {id: '7.2.1.2', title: '7.2.1.2', text: ['Toutes les méthodes, les procédures et la documentation associée, telles que les instructions, normes, manuels et données de référence se rapportant aux activités de laboratoire doivent être tenues à jour et être facilement accessibles au personnel (voir 8.3).']},
+                        {id: '7.2.1.3', title: '7.2.1.3', text: ['Le laboratoire doit assurer qu\'il utilise la dernière version valide d\'une méthode, sauf si cela n\'est pas approprié ou possible. Quand cela est nécessaire, des précisions doivent être apportées à cette méthode pour en assurer une application cohérente.']},
+                        {id: '7.2.1.4', title: '7.2.1.4', text: ['Lorsque le client ne spécifie pas la méthode à utiliser, le laboratoire doit sélectionner une méthode appropriée et informer le client de la méthode choisie. Les méthodes publiées dans des normes internationales, régionales ou nationales, par des organisations techniques de renom ou dans des textes ou revues scientifiques spécialisés, ou spécifiées par le fabricant d\'équipement, sont recommandées. Des méthodes développées ou modifiées par le laboratoire peuvent également être adoptées.']},
+                        {id: '7.2.1.5', title: '7.2.1.5', text: ['Le laboratoire doit vérifier qu\'il peut correctement appliquer des méthodes avant de les mettre en œuvre en s\'assurant qu\'il peut atteindre la performance requise. Les enregistrements de la vérification doivent être conservés. Si la méthode est révisée par l\'organisme éditeur, il faut procéder à une nouvelle vérification aussi étendue que nécessaire.']},
+                        {id: '7.2.1.6', title: '7.2.1.6', text: ['Lorsque le développement de la méthode est nécessaire, cela doit être une activité planifiée et doit être confié à du personnel compétent, doté de ressources adéquates. À mesure que le développement de la méthode se poursuit, il est nécessaire de procéder à des revues périodiques afin de confirmer que les besoins du client continuent d\'être satisfaits. Toute modification du plan de développement doit être approuvée et autorisée.']},
+                        {id: '7.2.1.7', title: '7.2.1.7', text: ['Des écarts par rapport aux méthodes relatives à toutes les activités de laboratoire ne doivent avoir lieu que si l\'écart a été documenté, justifié sur le plan technique, autorisé, et accepté par le client.']}
+                     ]},
+                     { id: '7.2.2', title: '7.2.2 Validation des méthodes', children: [
+                        {id: '7.2.2.1', title: '7.2.2.1', text: ['Le laboratoire doit valider les méthodes non normalisées, les méthodes développées par le laboratoire et les méthodes normalisées employées en dehors de leur domaine d\'application prévu, ou autrement modifiées. La validation doit être aussi étendue que l\'impose la réponse aux besoins pour l\'application ou le domaine d\'application donné.']},
+                        {id: '7.2.2.2', title: '7.2.2.2', text: ['Lorsque des modifications sont apportées à une méthode validée, les incidences des modifications introduites doivent être déterminées et, s\'il a été constaté qu\'elles ont compromis la validation d\'origine, une nouvelle validation de méthode doit être effectuée.']},
+                        {id: '7.2.2.3', title: '7.2.2.3', text: ['Les caractéristiques de performance des méthodes validées telles qu\'estimées en vue de l\'emploi prévu, doivent correspondre aux besoins du client et être conformes aux exigences spécifiées.']},
+                        {id: '7.2.2.4', title: '7.2.2.4', text: ['Le laboratoire doit conserver les enregistrements de validation suivants: a) la procédure de validation utilisée; b) la spécification des exigences; c) la détermination des caractéristiques de performance de la méthode; d) les résultats obtenus; e) une déclaration sur la validité de la méthode, détaillant son aptitude à l\'usage prévu.']}
+                     ]}
+                 ]},
+                  { id: '7.3', title: '7.3 Échantillonnage', children: [
+                    { id: '7.3.1', title: '7.3.1', text: ['Le laboratoire doit disposer d\'un plan et d\'une méthode d\'échantillonnage lorsqu\'il procède à l\'échantillonnage de substances, de matériaux ou de produits destinés à des essais ou à des étalonnages ultérieurs. La méthode d\'échantillonnage doit tenir compte des facteurs devant être maîtrisés afin d\'assurer la validité des résultats d\'essai ou d\'étalonnage ultérieurs. Le plan d\'échantillonnage ainsi que la méthode d\'échantillonnage doivent être disponibles sur le site où l\'échantillonnage est effectué. Les plans d\'échantillonnage doivent, lorsque cela est raisonnable, se fonder sur des méthodes statistiques appropriées.']},
+                    { id: '7.3.2', title: '7.3.2', text: ['La méthode d\'échantillonnage doit décrire: a) la sélection des échantillons ou des sites; b) le plan d\'échantillonnage; c) la préparation et le traitement des échantillons à partir d\'une substance, d\'un matériau ou d\'un produit pour obtenir l\'objet requis pour l\'essai ou l\'étalonnage ultérieur.']},
+                    { id: '7.3.3', title: '7.3.3', text: ['Le laboratoire doit conserver les enregistrements des données d\'échantillonnage qui font partie intégrante des travaux d\'essai ou d\'étalonnage entrepris. Ces enregistrements doivent inclure, le cas échéant: a) la référence à la méthode d\'échantillonnage utilisée; b) la date et l\'heure de l\'échantillonnage; c) les données permettant d\'identifier et de décrire l\'échantillon (par exemple, numéro, quantité, nom); d) l\'identification du personnel ayant effectué l\'échantillonnage; e) l\'identification de l\'équipement utilisé; f) les conditions ambiantes ou de transport; g) des schémas ou d\'autres moyens équivalents pour identifier le lieu d\'échantillonnage, lorsque cela est approprié; h) les écarts, ajouts ou exclusions par rapport à la méthode et au plan d\'échantillonnage.']}
+                 ]},
+                 { id: '7.4', title: '7.4 Manutention des objets d\'essai ou d\'étalonnage', children: [
+                    { id: '7.4.1', title: '7.4.1', text: ['Le laboratoire doit avoir une procédure pour le transport, la réception, la manutention, la protection, le stockage, la conservation et l\'élimination ou le retour d\'objets d\'essai ou d\'étalonnage, y compris toute disposition nécessaire pour protéger l\'intégrité de l\'objet d\'essai ou d\'étalonnage, ainsi que les intérêts du laboratoire et du client. Des précautions doivent être prises pour éviter la détérioration, la contamination, la perte ou l\'endommagement de l\'objet lors de la manutention, du transport, du stockage/de la mise en attente et de la préparation, à des fins d\'essais ou d\'étalonnage. Les instructions de manutention données avec l\'objet doivent être suivies.']},
+                    { id: '7.4.2', title: '7.4.2', text: ['Le laboratoire doit établir un système permettant l\'identification non ambiguë des objets d\'essai ou d\'étalonnage. L\'identification doit être conservée tant que l\'objet est sous la responsabilité du laboratoire. Le système doit garantir que les objets ne seront pas confondus physiquement ou lorsqu\'il y est fait référence dans les enregistrements ou autres documents. Le cas échéant, le système doit prévoir une subdivision d\'un objet ou de groupes d\'objets et le transfert d\'objets.']},
+                    { id: '7.4.3', title: '7.4.3', text: ['À la réception de l\'objet d\'essai ou d\'étalonnage, tout écart par rapport aux conditions spécifiées doit être enregistré. En cas de doute quant à l\'adéquation d\'un objet pour un essai ou un étalonnage, ou si l\'objet n\'est pas conforme à la description fournie, le laboratoire doit consulter le client pour obtenir de nouvelles instructions avant de poursuivre et doit consigner les résultats de cette consultation. Lorsque le client demande de soumettre l\'objet à essai ou à étalonnage tout en prenant acte d\'un écart par rapport aux conditions spécifiées, le laboratoire doit inclure dans son rapport un avertissement mentionnant les résultats susceptibles d\'être affectés par cet écart.']},
+                    { id: '7.4.4', title: '7.4.4', text: ['Lorsqu\'il est nécessaire de stocker ou de conditionner des objets dans des conditions ambiantes spécifiées, ces dernières doivent être maintenues, suivies et enregistrées.']}
+                 ]},
+                 { id: '7.5', title: '7.5 Enregistrements techniques', children: [
+                    { id: '7.5.1', title: '7.5.1', text: ['Le laboratoire doit assurer que les enregistrements techniques correspondant à chaque activité de laboratoire contiennent les résultats, le rapport et suffisamment d\'informations pour faciliter, si possible, l\'identification de facteurs affectant le résultat des mesures et leur incertitude de mesure associée, ainsi que pour permettre de répéter l\'activité de laboratoire dans des conditions aussi proches que possible de l\'original. Les enregistrements techniques doivent consigner la date et l\'identité du personnel responsable de chaque activité de laboratoire et du contrôle des données et des résultats. Les observations, données et calculs d\'origine doivent être enregistrés au moment où ils sont effectués et doivent pouvoir être reliés à l\'opération concernée.']},
+                    { id: '7.5.2', title: '7.5.2', text: ['Le laboratoire doit assurer que les modifications apportées aux enregistrements techniques peuvent être retracées en remontant aux versions précédentes ou aux observations d\'origine. Les données et fichiers à la fois d\'origine et modifiés doivent être conservés, y compris la date de modification, une indication relative aux éléments modifiés et le personnel responsable des modifications.']}
+                 ]},
+                 { id: '7.6', title: '7.6 Évaluation de l\'incertitude de mesure', children: [
+                    { id: '7.6.1', title: '7.6.1', text: ['Le laboratoire doit identifier les contributions à l\'incertitude de mesure. Lors de l\'évaluation de l\'incertitude de mesure, toutes les contributions importantes, y compris celles issues de l\'échantillonnage, doit être prises en compte, en utilisant des méthodes d\'analyse appropriées.']},
+                    { id: '7.6.2', title: '7.6.2', text: ['Un laboratoire procédant à des étalonnages, y compris de ses propres équipements, doit évaluer l\'incertitude de mesure de tous les étalonnages.']},
+                    { id: '7.6.3', title: '7.6.3', text: ['Un laboratoire procédant à des essais doit évaluer l\'incertitude de mesure. Lorsque la méthode d\'essai ne permet pas une évaluation rigoureuse de l\'incertitude de mesure, il faut faire une estimation sur la base d\'une connaissance scientifique des principes théoriques ou d\'une expérience pratique de la performance de la méthode.']}
+                 ]},
+                 { id: '7.7', title: '7.7 Assurer la validité des résultats', children: [
+                    { id: '7.7.1', title: '7.7.1', text: ['Le laboratoire doit disposer d\'une procédure pour surveiller la validité des résultats. Les données résultantes doivent être enregistrées de sorte que les tendances soient détectables et, lorsque cela est faisable, des techniques statistiques doivent être appliquées à l\'examen des résultats. Cette surveillance doit être planifiée et revue et doit inclure le cas échéant, sans s\'y limiter, les pratiques suivantes: a) utilisation de matériaux de référence ou de matériaux de contrôle qualité; b) utilisation d\'instruments de remplacement qui ont été étalonnés pour fournir des résultats traçables; c) contrôle fonctionnel de l\'équipement de mesure et d\'essai; d) utilisation de témoins de vérification ou de travail avec des cartes de contrôle, le cas échéant; e) contrôles intermédiaires sur l\'équipement de mesure; f) répétition d\'essais ou d\'étalonnages en utilisant la même méthode ou des méthodes différentes; g) nouveaux essais ou nouveaux étalonnages d\'objets conservés; h) corrélation des résultats pour différentes caractéristiques d\'un objet; i) revue des résultats communiqués; j) comparaisons intralaboratoires; k) essai d\'échantillons codés.']},
+                    { id: '7.7.2', title: '7.7.2', text: ['Le laboratoire doit surveiller sa performance en la comparant avec les résultats d\'autres laboratoires, si cela existe et est approprié. Cette surveillance doit être planifiée et revue et doit inclure, sans toutefois s\'y limiter, l\'une des deux ou les deux participations suivantes: a) participation à des essais d\'aptitude; b) participation à des comparaisons interlaboratoires autres que des essais d\'aptitude.']},
+                    { id: '7.7.3', title: '7.7.3', text: ['Les données provenant des activités de surveillance doivent être analysées et utilisées pour maîtriser et, le cas échéant, pour améliorer les activités de laboratoire. Si les résultats de l\'analyse de données des activités de surveillance ne satisfont pas aux critères prédéfinis, une action appropriée doit être prise pour éviter que des résultats incorrects soient fournis.']}
+                 ]},
+                 { id: '7.8', title: '7.8 Rapport sur les résultats', children: [
+                    { id: '7.8.1', title: '7.8.1 Généralités', children: [
+                        {id: '7.8.1.1', title: '7.8.1.1', text: ['Les résultats doivent être revus et approuvés avant émission.']},
+                        {id: '7.8.1.2', title: '7.8.1.2', text: ['Les résultats doivent être fournis de manière exacte, claire, non ambiguë, objective, en général dans un rapport (par exemple un rapport d\'essai, un certificat d\'étalonnage ou un rapport d\'échantillonnage), et doivent être accompagnés de toutes les informations convenues avec le client et nécessaires à l\'interprétation des résultats, ainsi que de toutes les informations exigées par la méthode utilisée. Tous les rapports émis doivent être conservés comme enregistrements techniques.']},
+                        {id: '7.8.1.3', title: '7.8.1.3', text: ['En cas d\'accord avec le client, les résultats peuvent être rapportés de manière simplifiée. Toute information énoncée de 7.8.2 à 7.8.7, qui ne fait pas l\'objet d\'un rapport au client, doit être facilement accessible.']}
+                    ]},
+                    { id: '7.8.2', title: '7.8.2 Exigences communes relatives aux rapports', children: [
+                        {id: '7.8.2.1', title: '7.8.2.1', text: ['À moins que le laboratoire n\'ait des raisons valables pour ne pas le faire, chaque rapport doit comporter au moins les indications suivantes, limitant ainsi la possibilité d\'incompréhension ou de mauvais usage: a) un titre (par exemple « Rapport d\'essai », « Certificat d\'étalonnage » ou « Rapport d\'échantillonnage »); b) le nom et l\'adresse du laboratoire; c) le lieu de réalisation des activités de laboratoire, y compris lorsque celles-ci sont réalisées dans les installations d\'un client, sur des sites éloignés des installations permanentes du laboratoire, ou dans des installations provisoires ou mobiles associées; d) une identification unique de tous les éléments du rapport, de manière à ce que celui-ci soit reconnu comme un tout et une identification claire de la fin du rapport; e) le nom et les coordonnées du client; f) l\'identification de la méthode utilisée; g) une description, une identification non ambiguë et, si nécessaire, l\'état de l\'objet; h) la date de réception de l\'objet d\'essai ou d\'étalonnage, et la date de l\'échantillonnage, lorsque cela est essentiel pour la validité et l\'application des résultats; i) la ou les dates de réalisation de l\'activité de laboratoire; j) la date d\'émission du rapport; k) la référence au plan et à la méthode d\'échantillonnage utilisés par le laboratoire ou d\'autres organismes lorsque ceux-ci sont pertinents pour la validité ou l\'application des résultats; l) une déclaration spécifiant que les résultats ne se rapportent qu\'aux objets soumis à essai, à étalonnage ou échantillonnés; m) le ou les résultats, accompagnés, le cas échéant, des unités de mesure; n) des ajouts, écarts ou exclusions par rapport à la méthode; o) l\'identification de la ou des personnes autorisant le rapport; p) une identification claire lorsque des résultats proviennent de prestataires externes.']},
+                        {id: '7.8.2.2', title: '7.8.2.2', text: ['Le laboratoire doit être responsable de toutes les informations fournies dans le rapport, sauf lorsque l\'information est fournie par le client. Les données fournies par un client doivent être clairement identifiées. Une exonération de responsabilité doit en outre être ajoutée dans le rapport lorsque les informations sont fournies par le client et qu\'elles peuvent affecter la validité des résultats. Dans le cas où le laboratoire n\'a pas été chargé de l\'étape d\'échantillonnage (par exemple lorsque l\'échantillon a été fourni par le client), il doit être stipulé dans le rapport que les résultats s\'appliquent à l\'échantillon tel qu\'il a été reçu.']}
+                    ]},
+                    { id: '7.8.3', title: '7.8.3 Exigences spécifiques aux rapports d\'essai', children: [
+                        {id: '7.8.3.1', title: '7.8.3.1', text: ['Outre les exigences répertoriées en 7.8.2, les rapports d\'essai doivent inclure les éléments suivants lorsque cela est nécessaire pour l\'interprétation des résultats d\'essai: a) des informations sur les conditions d\'essai spécifiques, telles que les conditions ambiantes; b) le cas échéant, une déclaration de conformité avec les exigences ou spécifications; c) le cas échéant, l\'incertitude de mesure présentée dans la même unité que le mesurande ou sous une forme relative (par exemple en pourcentage) lorsqu\'elle est pertinente pour la validité ou l\'application des résultats d\'essai, lorsqu\'une instruction du client l\'exige ou lorsque l\'incertitude de mesure affecte la conformité à une limite de spécification; d) le cas échéant, des avis et interprétations (voir 7.8.7); e) des informations supplémentaires qui peuvent être exigées par des méthodes spécifiques, des autorités, des clients ou des groupes de clients.']},
+                        {id: '7.8.3.2', title: '7.8.3.2', text: ['Lorsque le laboratoire est responsable de l\'activité d\'échantillonnage, les rapports d\'essai doivent satisfaire aux exigences répertoriées en 7.8.5, lorsque cela est nécessaire à l\'interprétation des résultats d\'essai.']}
+                    ]},
+                    { id: '7.8.4', title: '7.8.4 Exigences spécifiques aux certificats d\'étalonnage', children: [
+                        {id: '7.8.4.1', title: '7.8.4.1', text: ['Outre les exigences répertoriées en 7.8.2, les certificats d\'étalonnage doivent inclure les éléments suivants: a) l\'incertitude de mesure du résultat de mesure présentée dans la même unité que le mesurande ou sous une forme relative (par exemple en pourcentage); b) les conditions (par exemple ambiantes) dans lesquelles les étalonnages ont été effectués et qui ont une influence sur les résultats de mesure; c) une déclaration identifiant comment les mesures sont métrologiquement traçables; d) les résultats avant et après tout réglage ou toute réparation, le cas échéant; e) le cas échéant, une déclaration de conformité avec les exigences ou les spécifications; f) le cas échéant, des avis et interprétations (voir 7.8.7).']},
+                        {id: '7.8.4.2', title: '7.8.4.2', text: ['Lorsque le laboratoire est responsable de l\'activité d\'échantillonnage, les certificats d\'étalonnage doivent satisfaire aux exigences répertoriées en 7.8.5, lorsque cela est nécessaire à l\'interprétation des résultats de l\'étalonnage.']},
+                        {id: '7.8.4.3', title: '7.8.4.3', text: ['Un certificat d\'étalonnage ou un étiquetage d\'étalonnage ne doit contenir aucune recommandation concernant l\'intervalle d\'étalonnage, sauf si cela a été convenu avec le client.']}
+                    ]},
+                     { id: '7.8.5', title: '7.8.5 Rendre compte de l\'échantillonnage – Exigences spécifiques', text: [
+                        'Lorsque le laboratoire est responsable de l\'activité d\'échantillonnage, outre les exigences énumérées en 7.8.2, les rapports doivent inclure, lorsque cela est nécessaire à l\'interprétation des résultats: a) la date de l\'échantillonnage; b) l\'identification unique de l\'objet ou du matériau échantillonné (y compris le nom du fabricant, le modèle ou le type de désignation et les numéros de série, le cas échéant); c) le lieu d\'échantillonnage, y compris les schémas, croquis ou photographies; d) une référence au plan et à la méthode d\'échantillonnage; e) les détails de toutes les conditions ambiantes pendant l\'échantillonnage qui ont une incidence sur l\'interprétation des résultats; f) toute information nécessaire pour évaluer l\'incertitude de mesure pour les essais ou étalonnages ultérieurs.'
+                     ]},
+                     { id: '7.8.6', title: '7.8.6 Rendre compte des déclarations de conformité', children: [
+                        {id: '7.8.6.1', title: '7.8.6.1', text: ['Lorsqu\'une déclaration de conformité à une spécification ou norme est fournie, le laboratoire doit documenter la règle de décision utilisée, en tenant compte du niveau de risque (tel que fausse acceptation, faux rejet et hypothèses statistiques) associé à la règle de décision utilisée, et appliquer cette règle de décision.']},
+                        {id: '7.8.6.2', title: '7.8.6.2', text: ['Le laboratoire doit établir un rapport sur la déclaration de conformité de façon que cette déclaration identifie clairement: a) à quels résultats la déclaration de conformité s\'applique; b) à quelle(s) spécification(s), norme(s) ou partie(s) de celles-ci la déclaration de conformité est faite; c) la règle de décision appliquée (à moins qu\'elle ne soit inhérente à la spécification ou à la norme demandée).']}
+                     ]},
+                     { id: '7.8.7', title: '7.8.7 Rendre compte des avis et interprétations', children: [
+                        {id: '7.8.7.1', title: '7.8.7.1', text: ['Lorsque des avis et interprétations sont exprimés, le laboratoire doit assurer que seul le personnel autorisé à émettre ces avis et interprétations publie la déclaration correspondante. Le laboratoire doit documenter les bases sur lesquelles reposent les avis et interprétations émis.']},
+                        {id: '7.8.7.2', title: '7.8.7.2', text: ['Les avis et interprétations exprimés dans les rapports doivent reposer sur les résultats obtenus pour l\'objet soumis à essai ou étalonné et doivent être clairement identifiés comme tels.']},
+                        {id: '7.8.7.3', title: '7.8.7.3', text: ['Lorsque les avis et interprétations sont directement communiqués en dialoguant avec le client, il faut conserver un enregistrement de ce dialogue.']}
+                     ]},
+                     { id: '7.8.8', title: '7.8.8 Amendements aux rapports', children: [
+                        {id: '7.8.8.1', title: '7.8.8.1', text: ['Lorsqu\'un rapport émis doit être remplacé, amendé ou réémis, toute modification d\'informations doit être clairement identifiée et, si approprié, l\'explication de cette modification est à ajouter au rapport.']},
+                        {id: '7.8.8.2', title: '7.8.8.2', text: ['Les amendements à un rapport après son émission doivent exclusivement faire l\'objet d\'un nouveau document, ou d\'un transfert de données, portant la mention: "Amendement au rapport, numéro de série... [ou toute autre indication]", ou une formulation équivalente.']},
+                        {id: '7.8.8.3', title: '7.8.8.3', text: ['Lorsqu\'il est nécessaire d\'émettre un nouveau rapport complet, celui-ci doit comporter une identification unique et faire mention de l\'original qu\'il remplace.']}
+                     ]}
+                 ]},
+                 { id: '7.9', title: '7.9 Réclamations', children: [
+                    { id: '7.9.1', title: '7.9.1', text: ['Le laboratoire doit avoir un processus documenté lui permettant de recevoir, d\'évaluer et de prendre les décisions relatives aux réclamations.']},
+                    { id: '7.9.2', title: '7.9.2', text: ['Une description du processus de traitement des réclamations doit être mise à disposition de toute partie intéressée sur demande. Dès réception d\'une réclamation, le laboratoire doit confirmer si la réclamation concerne les activités de laboratoire dont il a la responsabilité et dans l\'affirmative, il doit la traiter. Le laboratoire doit être responsable de l\'ensemble des décisions à tous les niveaux du processus de traitement des réclamations.']},
+                    { id: '7.9.3', title: '7.9.3', text: ['Le processus de traitement des réclamations doit au moins comprendre les éléments et méthodes suivants: a) description du processus de réception, de validation, d\'investigation de la réclamation et de décision sur les actions à entreprendre pour y répondre; b) suivi et enregistrement des réclamations, y compris les actions entreprises pour les résoudre; c) garantie que toute action appropriée est entreprise.']},
+                    { id: '7.9.4', title: '7.9.4', text: ['Le laboratoire recevant la réclamation doit être responsable de la collecte et de la vérification de toutes les informations nécessaires lui permettant de valider cette réclamation.']},
+                    { id: '7.9.5', title: '7.9.5', text: ['Dans la mesure du possible, le laboratoire doit accuser réception de la réclamation et il doit fournir au plaignant des rapports d\'avancement et les conclusions.']},
+                    { id: '7.9.6', title: '7.9.6', text: ['Les conclusions à signifier au plaignant doivent être établies, ou revues et approuvées par une ou des personnes n\'ayant pas été impliquées dans les activités de laboratoire initialement en cause.']},
+                    { id: '7.9.7', title: '7.9.7', text: ['Dans la mesure du possible, le laboratoire doit dûment notifier au plaignant la fin du processus de traitement de la réclamation.']}
+                 ]},
+                 { id: '7.10', title: '7.10 Travaux non conformes', children: [
+                    { id: '7.10.1', title: '7.10.1', text: ['Le laboratoire doit avoir une procédure qui doit être mise en œuvre lorsqu\'un aspect quelconque de ses travaux, ou le résultat de ces travaux, n\'est pas conforme à ses propres procédures ou aux exigences convenues du client (par exemple lorsque l\'état de l\'équipement ou les conditions ambiantes sont hors des limites spécifiées, ou que les résultats de suivi ne répondent pas aux critères spécifiés). La procédure doit assurer que: a) les responsabilités et les autorités pour la gestion des travaux non conformes sont définies; b) les actions (y compris l\'interruption ou la répétition du travail et le refus des rapports, le cas échéant) sont fondées sur les niveaux de risque établis par le laboratoire; c) une évaluation de l\'importance du travail non conforme est effectuée, y compris une analyse d\'impact sur les résultats précédents; d) une décision est prise sur l\'acceptabilité du travail non conforme; e) le cas échéant, le client est informé et le travail est rappelé; f) la responsabilité d\'autoriser la reprise du travail est définie.']},
+                    { id: '7.10.2', title: '7.10.2', text: ['Le laboratoire doit conserver les enregistrements des travaux non conformes et les actions tels que spécifiés en 7.10.1, des points b) à f).']},
+                    { id: '7.10.3', title: '7.10.3', text: ['Lorsque l\'évaluation indique que le travail non conforme est susceptible de se reproduire ou qu\'il y a lieu de douter de la conformité des opérations du laboratoire à son propre système de management, le laboratoire doit mettre en œuvre une action corrective.']}
+                 ]},
+                 { id: '7.11', title: '7.11 Maîtrise des données et gestion de l\'information', children: [
+                    { id: '7.11.1', title: '7.11.1', text: ['Le laboratoire doit avoir accès aux données et aux informations nécessaires pour réaliser les activités de laboratoire.']},
+                    { id: '7.11.2', title: '7.11.2', text: ['Le ou les systèmes de gestion de l\'information du laboratoire utilisés pour la collecte, le traitement, l\'enregistrement, la transmission, le stockage ou la récupération de données doivent être validés en termes de fonctionnalité, y compris le bon fonctionnement des interfaces au sein du ou des systèmes de gestion de l\'information du laboratoire, par le laboratoire, avant mise en service. Chaque fois que des modifications sont apportées, y compris celles concernant la configuration du logiciel du laboratoire ou celles concernant un logiciel du laboratoire à partir d\'un logiciel commercial de série, elles doivent être autorisées, documentées et validées avant leur mise en œuvre.']},
+                    { id: '7.11.3', title: '7.11.3', text: ['Le ou les systèmes de gestion de l\'information du laboratoire doivent: a) être protégés contre tout accès non autorisé; b) être protégés contre toute altération ou perte; c) être exploités dans un environnement conforme aux spécifications du prestataire ou du laboratoire ou, dans le cas de systèmes non informatisés, fournir des conditions qui préservent l\'exactitude de l\'enregistrement et de la transcription manuels; d) être entretenus d\'une manière qui assure l\'intégrité des données et des informations; e) inclure l\'enregistrement des défaillances du système et la consignation des actions immédiates et correctives appropriées.']},
+                    { id: '7.11.4', title: '7.11.4', text: ['Lorsque le système de gestion de l\'information d\'un laboratoire est géré et entretenu hors site ou l\'est par un prestataire externe, le laboratoire doit assurer que le prestataire ou l\'opérateur du système satisfait à toutes les exigences applicables du présent document.']},
+                    { id: '7.11.5', title: '7.11.5', text: ['Le laboratoire doit assurer que les instructions, manuels et données de référence se rapportant au(x) système(s) de gestion de l\'information du laboratoire sont facilement accessibles au personnel.']},
+                    { id: '7.11.6', title: '7.11.6', text: ['Les calculs et transferts de données doivent être vérifiés de façon appropriée et systématique.']}
+                 ]}
+            ]},
+            { id: '8', title: '8. Exigences relatives au système de management', children: [
+                { id: '8.1', title: '8.1 Options', children: [
+                    { id: '8.1.1', title: '8.1.1 Généralités', text: ['Le laboratoire doit établir, documenter, mettre en œuvre et tenir à jour un système de management capable de soutenir et de démontrer la satisfaction constante des exigences du présent document et d\'assurer la qualité des résultats du laboratoire. Outre le respect des exigences des Articles 4 à 7, le laboratoire doit mettre en œuvre un système de management conformément à l\'Option A ou à l\'Option B.']},
+                    { id: '8.1.2', title: '8.1.2 Option A', text: ['Le système de management du laboratoire doit au minimum aborder les points suivants: • Documentation du système de management (voir 8.2); • Maîtrise de la documentation du système de management (voir 8.3); • Maîtrise des enregistrements (voir 8.4); • Actions à mettre en œuvre face aux risques et opportunités (voir 8.5); • Amélioration (voir 8.6); • Actions correctives (voir 8.7); • Audits internes (voir 8.8); • Revues de direction (voir 8.9).']},
+                    { id: '8.1.3', title: '8.1.3 Option B', text: ['Un laboratoire qui a établi et tient à jour un système de management, conformément aux exigences de l\'ISO 9001, et qui est capable de soutenir et de démontrer la satisfaction constante des exigences des Articles 4 à 7, satisfait également au moins à l\'intention des exigences du système de management spécifiées de 8.2 à 8.9.']}
+                ]},
+                { id: '8.2', title: '8.2 Documentation du système de management (Option A)', children: [
+                    { id: '8.2.1', title: '8.2.1', text: ['La direction du laboratoire doit définir, documenter et tenir à jour des politiques et des objectifs pour satisfaire à la finalité du présent document et doit assurer que ces politiques et ces objectifs sont compris et mis en œuvre à tous les niveaux de l\'organisation du laboratoire.']},
+                    { id: '8.2.2', title: '8.2.2', text: ['Les politiques et les objectifs doivent porter sur la compétence, l\'impartialité et la cohérence des activités de laboratoire.']},
+                    { id: '8.2.3', title: '8.2.3', text: ['La direction du laboratoire doit fournir des preuves de son engagement pour le développement et la mise en œuvre du système de management et pour l\'amélioration continue de son efficacité.']},
+                    { id: '8.2.4', title: '8.2.4', text: ['Tous les documents, les processus, les systèmes et les enregistrements se rapportant à l\'exécution des exigences du présent document doivent être inclus, référencés dans la documentation du système de management ou être reliés à elle.']},
+                    { id: '8.2.5', title: '8.2.5', text: ['Tous les membres du personnel impliqués dans des activités de laboratoire doivent avoir accès aux éléments de documentation du système de management et aux informations qui s\'y rapportent et qui leur sont applicables.']}
+                ]},
+                { id: '8.3', title: '8.3 Maîtrise de la documentation du système de management (Option A)', children: [
+                    { id: '8.3.1', title: '8.3.1', text: ['Le laboratoire doit maîtriser les documents (internes et externes) liés au respect des exigences du présent document.']},
+                    { id: '8.3.2', title: '8.3.2', text: ['Le laboratoire doit assurer que: a) les documents sont approuvés, quant à leur adéquation, par du personnel autorisé avant leur diffusion; b) les documents font l\'objet d\'une revue périodique et sont mis à jour si nécessaire; c) les modifications et le statut de la version en vigueur des documents sont identifiés; d) les versions pertinentes des documents applicables sont disponibles aux points d\'utilisation et, si nécessaire, leur diffusion est maîtrisée; e) les documents sont identifiés de manière univoque; f) l\'utilisation non intentionnelle de documents périmés est évitée et ces documents sont identifiés de manière appropriée s\'ils sont conservés dans un but quelconque.']}
+                ]},
+                { id: '8.4', title: '8.4 Maîtrise des enregistrements (Option A)', children: [
+                    { id: '8.4.1', title: '8.4.1', text: ['Le laboratoire doit établir et conserver des enregistrements lisibles afin de démontrer que les exigences du présent document ont été effectivement respectées.']},
+                    { id: '8.4.2', title: '8.4.2', text: ['Le laboratoire doit définir les dispositions nécessaires à l\'identification, au stockage, à la protection, à la sauvegarde, à l\'archivage, à l\'accessibilité, à la durée de conservation et à l\'élimination de ses enregistrements. Le laboratoire doit conserver les enregistrements pendant une période en cohérence avec ses obligations contractuelles. L\'accès à ces enregistrements doit être conforme aux engagements en matière de confidentialité. Ces enregistrements doivent être facilement accessibles.']}
+                ]},
+                { id: '8.5', title: '8.5 Actions à mettre en œuvre face aux risques et opportunités (Option A)', children: [
+                    { id: '8.5.1', title: '8.5.1', text: ['Le laboratoire doit tenir compte des risques et des opportunités liés aux activités de laboratoire afin de: a) donner l\'assurance que le système de management atteint les résultats escomptés; b) accroître les opportunités d\'atteindre les buts et objectifs du laboratoire; c) prévenir ou réduire les impacts non désirés et les défaillances potentielles dans les activités de laboratoire; d) parvenir à une amélioration.']},
+                    { id: '8.5.2', title: '8.5.2', text: ['Le laboratoire doit planifier: a) les actions à mettre en œuvre face à ces risques et opportunités; b) la manière de: — intégrer et mettre en œuvre ces actions dans son système de management; — évaluer l\'efficacité de ces actions.']},
+                    { id: '8.5.3', title: '8.5.3', text: ['Les actions mises en œuvre face aux risques et opportunités doivent être proportionnées à l\'impact potentiel sur la validité des résultats du laboratoire.']}
+                ]},
+                { id: '8.6', title: '8.6 Amélioration (Option A)', children: [
+                    { id: '8.6.1', title: '8.6.1', text: ['Le laboratoire doit identifier et sélectionner les opportunités d\'amélioration et entreprendre toutes les actions nécessaires.']},
+                    { id: '8.6.2', title: '8.6.2', text: ['Le laboratoire doit s\'efforcer d\'obtenir des retours d\'information, tant négatifs que positifs, de ses clients. Ces retours d\'information doivent être analysés et utilisés afin d\'améliorer le système de management, les activités de laboratoire et le service au client.']}
+                ]},
+                { id: '8.7', title: '8.7 Actions correctives (Option A)', children: [
+                    { id: '8.7.1', title: '8.7.1', text: ['Lorsqu\'une non-conformité se produit, le laboratoire doit: a) réagir à la non-conformité et, le cas échéant: — entreprendre une action pour la maîtriser et la corriger; — faire face aux conséquences; b) évaluer s\'il est nécessaire d\'entreprendre une action pour éliminer la ou les causes de la non-conformité, afin qu\'elle ne se reproduise plus ou qu\'elle n\'apparaisse pas ailleurs, en: — procédant à la revue et à l\'analyse de la non-conformité; — recherchant les causes de la non-conformité; — recherchant si des non-conformités similaires existent ou pourraient se produire; c) mettre en œuvre toute action nécessaire; d) examiner l\'efficacité de toute action corrective entreprise; e) revoir et modifier les risques et opportunités déterminés, si nécessaire; f) apporter des modifications au système de management, si nécessaire.']},
+                    { id: '8.7.2', title: '8.7.2', text: ['Les actions correctives doivent être appropriées aux conséquences des non-conformités rencontrées.']},
+                    { id: '8.7.3', title: '8.7.3', text: ['Le laboratoire doit conserver des enregistrements comme preuves: a) de la nature des non-conformités, de leur(s) cause(s) et de toute action entreprise ultérieurement; b) des résultats de toute action corrective.']}
+                ]},
+                { id: '8.8', title: '8.8 Audits internes (Option A)', children: [
+                    { id: '8.8.1', title: '8.8.1', text: ['Le laboratoire doit réaliser des audits internes à des intervalles planifiés pour fournir des informations permettant de déterminer si le système de management: a) est conforme: — aux propres exigences du laboratoire pour son système de management, y compris les activités de laboratoire; — aux exigences du présent document; b) est efficacement mis en œuvre et tenu à jour.']},
+                    { id: '8.8.2', title: '8.8.2', text: ['Le laboratoire doit: a) planifier, établir, mettre en œuvre et tenir à jour un programme d\'audit, y compris la fréquence, les méthodes, les responsabilités, les exigences de planification et de compte rendu, qui doit prendre en considération l\'importance des activités de laboratoire concernées, les modifications ayant une incidence sur le laboratoire, ainsi que les résultats des audits précédents; b) définir les critères d\'audit et le champ de chaque audit; c) s\'assurer que les résultats des audits sont rapportés à la direction concernée; d) mettre en œuvre les corrections et les actions correctives appropriées sans retard excessif; e) conserver des enregistrements comme preuves de la mise en œuvre du programme d\'audit et des résultats d\'audit.']}
+                ]},
+                { id: '8.9', title: '8.9 Revues de direction (Option A)', children: [
+                    { id: '8.9.1', title: '8.9.1', text: ['La direction du laboratoire doit, à intervalles planifiés, revoir son système de management pour assurer qu\'il demeure pertinent, adéquat et efficace, y compris les politiques et les objectifs déclarés relatifs au respect des exigences du présent document.']},
+                    { id: '8.9.2', title: '8.9.2', text: ['Les éléments d\'entrée des revues de direction doivent être enregistrés et comporter les informations liées aux éléments suivants: a) les modifications des enjeux internes et externes qui sont pertinents pour le laboratoire; b) la réalisation des objectifs; c) la pertinence des politiques et des procédures; d) l\'état d\'avancement des actions décidées lors des revues de direction précédentes; e) les résultats des audits internes récents; f) les actions correctives; g) les évaluations par des organismes externes; h) les changements dans le volume et le type des travaux ou dans le domaine des activités de laboratoire; i) les retours d\'information des clients et du personnel; j) les réclamations; k) l\'efficacité de toute amélioration mise en œuvre; l) l\'adéquation des ressources; m) les résultats de l\'identification des risques; n) les résultats de l\'assurance de la validité des résultats; o) les autres facteurs pertinents, tels que les activités de surveillance et la formation.']},
+                    { id: '8.9.3', title: '8.9.3', text: ['Les éléments de sortie de la revue de direction doivent enregistrer l\'ensemble des décisions et actions relatives au moins à/aux: a) l\'efficacité du système de management et de ses processus; b) l\'amélioration des activités de laboratoire en rapport avec le respect des exigences du présent document; c) la fourniture des ressources nécessaires; d) tout besoin de changement.']}
+                ]}
+            ]}
+        ];
+
+        // This is a placeholder for your real document list.
+        const csvData = `
+"M1-001","Pilotage stratégique et organisationnel"
+"M1-001-A1","Organigramme de StrasGene"
+"M1-001-A2","Organigramme de l'IML"
+"M1-001-A3","Liste des personnels et des postes occupés"
+"M1-001-A4","Plan stratégique"
+"M1-001-A5","Parties intéressées"
+"M1-001-M1","Compte-rendu de réunion de direction (partie stratégique)"
+"M1-002","Définition et revue de la Politique Qualité"
+"M1-002-A1","Politique Qualité"
+"M1-002-A2","Cartographie des Processus StrasGene"
+"M1-002-A3","Manuel Qualité StrasGene"
+"M1-002-A4","Flux des échantillons et du personnel"
+"M1-002-A5","Accès au laboratoire"
+"M1-003","Communication interne et externe"
+"M1-003-A1","Plan de communication"
+"M1-003-A2","Matrice de communication (Qui, Quoi, Quand, Comment)"
+"M1-003-M1","Compte-rendu de réunion d'équipe"
+"M1-003-M2","Modèle de communication externe type"
+"M1-004","Suivi des indicateurs de performance et prise de décision"
+"M1-004-A1","Liste des indicateurs clés (KPIs) par processus"
+"M1-004-A2","Objectifs Qualité annuels"
+"M1-004-M1","Tableau de bord des indicateurs (mensuel)"
+"M1-004-M2","Fiche de suivi d'indicateur individuel"
+"M1-005","Gestion budgétaire et financière"
+"M1-005-A1","Budget prévisionnel/alloué par activité"
+"M1-005-M1","Formulaire de demande budgétaire"
+"M1-005-M2","Suivi des dépenses"
+"M1-006","Veille réglementaire, normative et scientifique"
+"M1-006-A1","Liste des sources de veille identifiées (sites web, revues, organismes)"
+"M1-006-M1","Fiche d'analyse d'impact d'une nouvelle exigence/publication"
+"M1-006-M2","Registre de veille"
+"M2-001","Maîtrise de la documentation"
+"M2-001-A1","Liste Maîtresse des Documents du SMQ"
+"M2-001-A2","Règles de codification documentaire"
+"M2-001-A3","Instructions pour la création d'un nouveau document"
+"M2-001-M1","Modèle de document qualité"
+"M2-001-M2","Formulaire de Création/Modification/Suppression de Document"
+"M2-001-M3","Fiche de diffusion/retrait de document"
+"M2-001-M4","Accusé de lecture/prise de connaissance"
+"M2-002","Maîtrise des enregistrements"
+"M2-002-A1","Liste Maîtresse des Enregistrements (avec durées de conservation et localisation)"
+"M2-002-A2","Plan d'archivage"
+"M2-002-M1","Fiche d'enregistrement type (si non spécifique)"
+"M2-002-M2","Cahier de laboratoire numérique"
+"M2-002-M3","Cahier de vie des équipements numérique"
+"M2-002-M4","Cahier de suivi des affaires numérique"
+"M2-002-M5","Cahier de suivi des scellés numérique"
+"M2-002-M6","Cahier de suivi des personnels numérique"
+"M2-002-M7","Cahier de suivi des événements numérique"
+"M2-002-M8","Cahier de suivi des maintenances numérique"
+"M2-002-M9","Cahier de suivi des étalonnages numérique"
+"M2-002-M10","Registre d'archivage des documents d'enregistrement"
+"M2-003","Gestion des risques et opportunités"
+"M2-003-A1","Méthodologie d'analyse des risques"
+"M2-003-A2","Registre des risques et opportunités (SWOT)"
+"M2-003-A3","AMDEC"
+"M2-003-M1","Fiche d'analyse de risque/opportunité"
+"M2-003-M2","Plan d'action de maîtrise des risques"
+"M2-004","Audit interne"
+"M2-004-A1","Plan d'audit annuel/pluriannuel"
+"M2-004-A2","Grille d'audit type (par processus/chapitre norme)"
+"M2-004-A3","Qualification des auditeurs internes"
+"M2-004-M1","Plan d'audit spécifique"
+"M2-004-M2","Rapport d'audit interne"
+"M2-004-M3","Fiche de suivi d'action post-audit"
+"M2-005","Revue de direction"
+"M2-005-A1","Ordre du jour type de la revue de direction"
+"M2-005-A2","Liste des données d'entrée requises"
+"M2-005-M1","Support de présentation de la revue de direction"
+"M2-005-M2","Compte-rendu de revue de direction"
+"M2-005-M3","Plan d'actions issues de la revue de direction"
+"M2-006","Gestion des non-conformités"
+"M2-006-A1","Classification des non-conformités (critique, majeure, mineure)"
+"M2-006-M1","Fiche de déclaration de non-conformité"
+"M2-006-M2","Registre des non-conformités"
+"M2-006-M3","Fiche d'analyse d'impact d'une non-conformité"
+"M2-007","Actions correctives"
+"M2-007-A1","Méthodologie d'analyse des causes"
+"M2-007-M1","Fiche d'action corrective"
+"M2-007-M2","Registre des actions correctives"
+"M2-007-M3","Fiche de suivi d'efficacité de l'action corrective"
+"M2-008","Amélioration continue"
+"M2-008-A1","Plan d'amélioration annuel"
+"M2-008-M1","Fiche de suggestion d'amélioration"
+"M2-008-M2","Registre des suggestions d'amélioration"
+"M2-008-M3","Fiche d'action préventive"
+"M2-009","Gestion et administration du LIMS"
+"M2-009-A1","Politique d'accès LIMS"
+"M2-009-A2","Matrice des droits d'accès par fonction"
+"M2-009-A3","Manuel utilisateur LIMS"
+"M2-009-M1","Formulaire de demande/modification d'accès LIMS"
+"M2-009-M2","Log des accès et modifications LIMS"
+"M2-010","Maintenance et support du LIMS"
+"M2-010-A1","Contrat de maintenance LIMS (si externe)"
+"M2-010-A2","Plan de maintenance préventive LIMS"
+"M2-010-A3","Procédure de validation des mises à jour LIMS"
+"M2-010-M1","Fiche de suivi de maintenance LIMS"
+"M2-010-M2","Formulaire de rapport d'incident/anomalie LIMS"
+"M2-010-M3","Rapport de validation de mise à jour LIMS"
+"M2-011","Gestion de l'impartialité"
+"M2-011-A1","Analyse des risques liés à l'impartialité (détaillée)"
+"M2-011-M1","Formulaire d'Engagement d'Impartialité"
+"M2-011-M2","Déclaration d'intérêts"
+"M2-012","Gestion de la confidentialité"
+"M2-012-A1","Clauses de confidentialité type (contrats, personnel, prestataires)"
+"M2-012-A2","Registre des traitements de données à caractère personnel"
+"M2-012-M1","Formulaire d'Engagement de Confidentialité"
+"R1-001","Vérification des demandes d'analyse et documents associés"
+"R1-001-A1","Critères d'acceptation/refus des demandes (complétude, lisibilité, conformité réglementaire)"
+"R1-001-A2","Liste des documents requis par type d'affaire"
+"R1-001-M1","Checklist de vérification documentaire"
+"R1-001-M2","Fiche de non-conformité documentaire"
+"R1-002","Sélection des affaires entrant dans le processus analytique"
+"R1-002-A1","Critères de sélection des affaires"
+"R1-002-M1","Planning d'analyse des affaires sélectionnées"
+"R1-003","Description et examen macroscopique des scellés"
+"R1-003-A1","Instructions pour la photographie des scellés"
+"R1-003-A2","Guide de description des altérations/ouvertures"
+"R1-003-M1","Fiche de description de scellé (papier ou LIMS)"
+"R1-003-M2","Enregistrement photographique des scellés"
+"R1-004","Prélèvement sur scellés"
+"R1-004-A1","Protocole de prélèvement "
+"R1-004-A2","Guide de laboratoire","Prélèvement"
+"R1-004-A3","Guide de prévention de la contamination lors du prélèvement"
+"R1-004-A4","Protocole de nettoyage de la perforatrice UniCore (carte FTA)"
+"R1-004-M1","Fiche de prélèvement sur scellé (traçabilité aliquotes, localisation)"
+"R1-004-M2","Étiquettes aliquotes"
+"R1-004-M3","Liste des prélèvements et préparation à l'extraction"
+"R1-005","Réalisation des tests d'orientation/préliminaires"
+"R1-005-A1","Protocole","Test Peroxtesmo KM","Détection de trace de sang "
+"R1-005-A2","Protocole","Test Phosphatesmo KM","Détection de trace de sperme"
+"R1-005-A3","Protocole","Blue Star OBTI","Détection de sang humain"
+"R1-005-A4","Protocole","Seratec PSA Semiquant","Détection de sperme humain"
+"R1-005-A5","Protocole","Spermac Stain","Détection cytologique de spermatozoïdes humains par coloration"
+"R1-005-A6","Protocole","Recherche macroscopique de bulbes sur cheveux et poils"
+"R1-005-A7","Guide de laboratoire","Test Peroxtesmo KM","Détection de trace de sang "
+"R1-005-A8","Guide de laboratoire","Test Phosphatesmo KM","Détection de trace de sperme"
+"R1-005-A9","Guide de laboratoire","Blue Star OBTI","Détection de sang humain"
+"R1-005-A10","Guide de laboratoire","Seratec PSA Semiquant","Détection de sperme humain"
+"R1-005-A11","Guide de laboratoire","Spermac Stain","Détection cytologique de spermatozoïdes humains par coloration"
+"R1-005-A12","Guide de laboratoire","Recherche macroscopique de bulbes sur cheveux et poils"
+"R1-005-A13","Validation/Vérification des tests préliminaires"
+"R1-005-M1","Formulaire d'enregistrement des résultats préliminaires"
+"R1-005-M2","Fiche de suivi des contrôles qualité des tests préliminaires"
+"R1-006","Prélèvement à partir d'échantillons osseux"
+"R1-006","A1","Protocole de préparation des échantillons osseux","Trépanation"
+"R1-006","A2","Protocole de cryobroyage d'os et de dents"
+"R1-006","A3","Guide de laboratoire","préparation des échantillons osseux -Trépanation"
+"R1-006","A4","Guide de laboratoire","Cryobroyage d'os et de dents"
+"R1-007","Prélèvement par un prestataire externe pour test de paternité"
+"R2-001","Extraction"
+"R2-001-A1","Protocole QIAamp DNA Investigator","Écouvillon (coton ou dacron) buccal ou surface"
+"R2-001-A2","Protocole QIAamp DNA Investigator","Écouvillon (Omni) buccal ou surface"
+"R2-001-A3","Protocole QIAamp DNA Investigator","FTA     "
+"R2-001-A4","Protocole QIAamp DNA Investigator","Chewing Gum"
+"R2-001-A5","Protocole QIAamp DNA Investigator","Mégot de cigarette"
+"R2-001-A6","Protocole QIAamp DNA Investigator","Ongles et cheveux"
+"R2-001-A7","Protocole QIAamp DNA Investigator","Papier et matériaux similaires"
+"R2-001-A8","Protocole QIAamp DNA Investigator ","Petits volumes de sang ou salive"
+"R2-001-A9","Protocole QIAamp DNA Investigator","Tissus biologiques"
+"R2-001-A10","Protocole QIAamp DNA Investigator","Os et Dents"
+"R2-001-A11","Protocole QIAamp DNA Investigator","Tache de salive, sang ou sperme"
+"R2-001-A12","Protocole QIAamp DNA Investigator","Extraction différentielle dans le cadre d'agressions sexuelles"
+"R2-001-A13","Protocole EZ1&2 Investigator Kit","Trace"
+"R2-001-A14","Protocole EZ1&2 DNA Investigator® Kit (48)","Bone Large Volume","via le EZ2® Connect Fx"
+"R2-001-A15","Protocole EZ1&2 Investigator Kit","Large-Volume"
+"R2-001-A16","Protocole EZ1&2 Investigator Kit","Extraction différentielle"
+"R2-001-A17","Guide de laboratoire QIAamp DNA Investigator","Écouvillon (coton ou dacron) buccal ou surface"
+"R2-001-A18","Guide de laboratoire QIAamp DNA Investigator","Écouvillon (Omni) buccal ou surface"
+"R2-001-A19","Guide de laboratoire QIAamp DNA Investigator","FTA     "
+"R2-001-A20","Guide de laboratoire QIAamp DNA Investigator","Chewing Gum"
+"R2-001-A21","Guide de laboratoire QIAamp DNA Investigator","Mégot de cigarette"
+"R2-001-A22","Guide de laboratoire QIAamp DNA Investigator","Ongles et cheveux"
+"R2-001-A23","Guide de laboratoire QIAamp DNA Investigator","Papier et matériaux similaires"
+"R2-001-A24","Guide de laboratoire QIAamp DNA Investigator ","Petits volumes de sang ou salive"
+"R2-001-A25","Guide de laboratoire QIAamp DNA Investigator","Tissus biologiques"
+"R2-001-A26","Guide de laboratoire QIAamp DNA Investigator","Os et Dents"
+"R2-001-A27","Guide de laboratoire QIAamp DNA Investigator","Tache de salive, sang ou sperme"
+"R2-001-A28","Guide de laboratoire QIAamp DNA Investigator","Extraction différentielle dans le cadre d'agressions sexuelles"
+"R2-001-A29","Guide de laboratoire EZ1&2 Investigator Kit","Trace"
+"R2-001-A30","Guide de laboratoire EZ1&2 Investigator Kit","Bone Extra Large Volume"
+"R2-001-A31","Guide de laboratoire EZ1&2 Investigator Kit","Large-Volume"
+"R2-001-A32","Guide de laboratoire EZ1&2 Investigator Kit","Extraction différentielle"
+"R2-001-M1","Fiche de suivi Extraction"
+"R2-002","Quantification"
+"R2-002-A1","Protocole Quantiplex Pro RGQ","Quantification"
+"R2-002-A2","Guide de laboratoire","Quantification"
+"R2-002-M1","Fiche de suivi Quantification"
+"R2-002-M2","Rapport de quantification"
+"R2-002-M3","Fiche DHT"
+"R2-003","Normalisation"
+"R2-003-A1","Protocole Dilution post quantification"
+"R2-003-A2","Protocole Concentration post quantification"
+"R2-003-A3","Protocole Purification post quantification"
+"R2-003-A4","Guide de laboratoire Dilution post quantification"
+"R2-003-A5","Guide de laboratoire Concentration post quantification"
+"R2-003-A6","Guide de laboratoire Purification post quantification"
+"R2-003-M1","Fiche de suivi Normalisation"
+"R2-004","Amplification"
+"R2-004-A1","Protocole – GlobalFiler™ IQC PCR Amplification","PCR"
+"R2-004-A2","Protocole – Yfiler™ Plus PCR Amplification","PCR"
+"R2-004-A3","Guide de laboratoire – GlobalFiler™ IQC PCR Amplification","PCR"
+"R2-004-A4","Guide de laboratoire – Yfiler™ Plus PCR Amplification","PCR"
+"R2-004-M1","Fiche de suivi Amplification"
+"R2-004-M2","Liste des échantillons pour amplification et feuille de route"
+"R2-005","Électrophorèse capillaire / Séquençage"
+"R2-005-A1","Protocole – GlobalFiler™ IQC","Run 3500"
+"R2-005-A2","Protocole – Yfiler™ Plus","Run 3500"
+"R2-005-A3","Guide de laboratoire – GlobalFiler™ IQC","Run 3500"
+"R2-005-A4","Guide de laboratoire – Yfiler™ Plus","Run 3500"
+"R2-005-M1","Fiche de suivi Séquençage"
+"R2-005-M2","Résultat brut de séquençage (électrophorégramme ou séquence)"
+"R2-005-M3","Liste des échantillons pour analyse de fragments"
+"R2-006","Vérification et validation des méthodes d'analyse"
+"R2-006-A1","Plan de validation type"
+"R2-006-A2","Liste des méthodes validées/vérifiées"
+"R2-006-A3","Guide ENFSI Validation"
+"R2-006-A4","Guide COFRAC SH GTA"
+"R2-006-A5","Exigences FNAEG"
+"R2-006-M1","Registre de suivi de Vérification/Validation de Méthode"
+"R2-006-M2","Rapport de Vérification/Validation"
+"R2-007","Contrôle Interne Qualité (CIQ)"
+"R2-007-A1","Règles d'acceptation des CIQ (par méthode/étape)"
+"R2-007-A2","Protocoles d'utilisation des contrôles (positif, négatif, blanc)"
+"R2-007-A3","Matériaux de référence internes"
+"R2-007-M1","Fiche de suivi CIQ (LIMS/Excel)"
+"R2-007-M2","Fiche de non-conformité CIQ"
+"R2-008","Participation et gestion des Essais d'Aptitude / Comparaisons Interlaboratoires (EEQ/CIL)"
+"R2-008-A1","Catalogue des fournisseurs d'EEQ/CIL pertinents"
+"R2-008-A2","Plan de participation annuel aux EEQ/CIL"
+"R2-008-A3","Critères d'évaluation des performances EEQ/CIL"
+"R2-008-M1","Formulaire d'enregistrement des résultats EEQ/CIL"
+"R2-008-M2","Rapport d'analyse des résultats EEQ/CIL"
+"R2-008-M3","Fiche d'action corrective suite à EEQ non satisfaisant"
+"R2-009","Évaluation de l'incertitude de mesure / variabilité"
+"R2-009-A1","Politique d'évaluation de l'incertitude/variabilité (quand et comment)"
+"R2-009-A2","Guide COFRAC SH GTA"
+"R2-009-M1","Fiche de calcul/évaluation de l'incertitude (quantitatif)"
+"R2-009-M2","Fiche d'analyse de la variabilité (qualitatif)"
+"R2-010","Prévention et gestion de la contamination"
+"R2-010-A1","Guide des bonnes pratiques de prévention de la contamination"
+"R2-010-A2","Protocole de nettoyage des paillasses/équipements"
+"R2-010-A3","Protocole de décontamination UV"
+"R2-010-A4","Protocole de surveillance environnementale (swabs)"
+"R2-010-M1","Registre de suivi nettoyage/décontamination"
+"R2-010-M2","Fiche d'incident de contamination"
+"R2-010-M3","Base de données d'exclusion du personnel"
+"R2-010-M4","Consentement éclairé identification génétique (base d'élimination)"
+"R3-001","Analyse et revue technique des profils ADN bruts"
+"R3-001-A1","Critères de validation technique des électrophorégrammes (seuils, balance, artefacts)"
+"R3-001-A2","Critères de validation technique des séquences (qualité, couverture)"
+"R3-001-A3","Guide d'utilisation du logiciel d'analyse GeneMapper"
+"R3-001-M1","Fiche de validation technique du profil (LIMS ou papier)"
+"R3-001-M2","Checklist de revue technique"
+"R3-002","Interprétation des profils ADN et calculs statistiques (LR)"
+"R3-002-A1","Guide d'interprétation des profils simples"
+"R3-002-A2","Guide d'interprétation des mélanges (selon recommandations ISFG/ENFSI)"
+"R3-002-A3","Bases de données de fréquences alléliques utilisées"
+"R3-002-A4","Validation du logiciel de calcul statistique"
+"R3-002-A5","Guide ENFSI BPM Interprétation"
+"R3-002-M1","Fiche de calcul statistique (LR)"
+"R3-002-M2","Rapport généré par le logiciel statistique"
+"R3-003","Validation biologique et expertise des résultats"
+"R3-003-A1","Critères de validation biologique (cohérence résultats/contexte affaire)"
+"R3-003-A2","Liste des experts habilités/agréés"
+"R3-003-M1","Formulaire de validation biologique/expertise (signature expert)"
+"R3-003-M2","Checklist de validation finale de l'affaire"
+"R3-004","Rédaction et approbation du rapport d'expertise"
+"R3-004-A1","Checklist de revue et approbation du rapport"
+"R3-004-A2","Guide de formulation des conclusions (prudence, clarté)"
+"R3-004-A3","Liste des éléments obligatoires du rapport"
+"R3-004-M1","Rapport d'expertise"
+"R3-004-M2","Attestation de mission"
+"R3-005","Transmission sécurisée des rapports d'expertise"
+"R3-005-A1","Politique de transmission sécurisée (canaux, cryptage)"
+"R3-005-A2","Liste des destinataires autorisés par type d'affaire"
+"R3-005-M1","Accusé de réception du rapport"
+"R3-005-M2","Log de transmission des rapports"
+"R3-006","Transmission des profils au FNAEG"
+"R3-006-A1","Spécifications techniques de transmission FNAEG"
+"R3-006-A2","Cadre légal et réglementaire FNAEG"
+"R3-006-M1","Log de transmission FNAEG"
+"R3-006-M2","Formulaire de vérification avant transmission"
+"R3-007","Gestion des avis et interprétations dans les rapports"
+"R3-007-A1","Guide de formulation des avis et interprétations (niveau activité vs source)"
+"R3-007-A2","Exemples de formulations types"
+"S1-001","Sélection, évaluation et suivi des fournisseurs critiques"
+"S1-001-A1","Liste des fournisseurs approuvés (réactifs, consommables, équipements, services d'étalonnage, EEQ)"
+"S1-001-A2","Critères d'évaluation initiale et périodique des fournisseurs"
+"S1-001-M1","Fiche d'évaluation fournisseur (initiale/périodique)"
+"S1-001-M2","Questionnaire d'évaluation fournisseur"
+"S1-002","Processus d'achat"
+"S1-002-A1","Spécifications techniques d'achat type (par produit/service)"
+"S1-002-A2","Circuit de validation des commandes"
+"S1-002-M1","Formulaire de demande d'achat interne"
+"S1-002-M2","Bon de commande type"
+"S1-003","Réception et vérification des produits et services commandés"
+"S1-003-A1","Critères d'acceptation à réception (conformité commande, intégrité, température, documentation)"
+"S1-003-A2","Instructions spécifiques de réception (produits thermosensibles, etc.)"
+"S1-003-M1","Fiche de réception et de vérification de commande"
+"S1-003-M2","Étiquette "Conforme" / "Non conforme" / "Quarantaine""
+"S1-003-M3","Fiche de non-conformité fournisseur"
+"S1-004","Gestion de la facturation"
+"S1-004-A1","Grille tarifaire des analyses "
+"S1-004-A2","Conditions générales de vente"
+"S1-004-M1","Modèle de facture"
+"S1-004-M2","Suivi des paiements"
+"S2-001","Gestion du parc d'équipements"
+"S2-001-A1","Inventaire des équipements (avec identification unique)"
+"S2-001-A2","Liste des équipements critiques (impact direct sur résultat)"
+"S2-001-M1","Fiche de vie équipement (identification, historique maintenance/étalonnage/pannes)"
+"S2-002","Étalonnage et vérification métrologique des équipements"
+"S2-002-A1","Stratégie métrologique (basée sur criticité et EMT)"
+"S2-002-A2","Programme d'étalonnage/vérification (périodicité, méthode)"
+"S2-002-M1","Certificat d'étalonnage (externe/interne)"
+"S2-002-M2","Constat de vérification (externe/interne)"
+"S2-002-M3","Fiche de suivi métrologique par équipement"
+"S2-003","Maintenance préventive et curative des équipements"
+"S2-003-A1","Programme de maintenance préventive par équipement"
+"S2-003-A2","Protocoles de maintenance préventive (internes ou fournisseur)"
+"S2-003-M1","Fiche de suivi de maintenance préventive"
+"S2-003-M2","Fiche d'intervention de maintenance curative"
+"S2-003-M3","Bon de sortie/retour équipement pour maintenance externe"
+"S2-004","Utilisation et contrôles quotidiens/périodiques des équipements"
+"S2-004-A1","Modes opératoires simplifiés (affichés sur/près équipement)"
+"S2-004-A2","Checklists de contrôles journaliers/hebdomadaires (ex","T° frigo, propreté)"
+"S2-004-M1","Journal de bord équipement (enregistrements contrôles, utilisation)"
+"S2-004-M2","Fiche de suivi utilisateur (si équipement partagé)"
+"S2-005","Gestion des pannes et non-conformités des équipements"
+"S2-005-A1","Instructions de mise hors service et identification"
+"S2-005-A2","Arbre de décision réparation vs remplacement"
+"S2-005-M1","Fiche d'incident/panne équipement"
+"S2-005-M2","Étiquette "Hors Service""
+"S2-005-M3","Rapport d'analyse d'impact de la panne sur les résultats antérieurs"
+"S3-001","Etablissement d'un devis"
+"S3-001-A1","Catalogue des analyses proposées (avec détails techniques/délais)"
+"S3-001-M1","Modèle de demande de devis"
+"S3-001-M2","Compte-rendu de réunion avec le client (si négociation)"
+"S3-001-M3","Enregistrement du refus de devis par le client"
+"S3-001-M4","Modèle de devis"
+"S3-002","Gestion de la relation client et suivi des affaires"
+"S3-002-A1","Politique de communication client (proactive/réactive)"
+"S3-002-M1","Dossier client (regroupant demandes, contrats, rapports, communications)"
+"S3-001-M2","Log des communications client (téléphone, email)"
+"S3-003","Traitement et suivi des réclamations clients"
+"S3-003-A1","Circuit de traitement des réclamations"
+"S3-003-M1","Fiche d'enregistrement de réclamation client"
+"S3-003-M2","Registre des réclamations"
+"S3-003-M3","Courrier/Email de réponse au client"
+"S3-004","Mesure de la satisfaction client"
+"S3-004-A1","Méthodologie de mesure (enquête, indicateurs indirects)"
+"S3-004-M1","Questionnaire de satisfaction client"
+"S3-004-M2","Rapport d'analyse de la satisfaction client"
+"S4-001","Gestion du parc informatique et des logiciels (hors LIMS)"
+"S4-001-A1","Inventaire matériel informatique (PC, serveurs, périphériques)"
+"S4-001-A2","Inventaire logiciels (OS, bureautique, spécifiques)"
+"S4-001-A3","Politique de mise à jour logiciels/OS"
+"S4-001-M1","Fiche de suivi matériel/logiciel par poste"
+"S4-002","Sécurité informatique et protection des données"
+"S4-002-A1","Politique de sécurité informatique (mots de passe, accès, usage)"
+"S4-002-A2","Charte informatique utilisateur"
+"S4-002-A3","Plan de gestion des incidents de sécurité"
+"S4-002-M1","Log d'accès aux systèmes/données"
+"S4-002-M2","Rapport d'analyse antivirus/malware"
+"S4-002-M3","Fiche d'incident de sécurité"
+"S4-003","Sauvegarde et restauration des données (hors LIMS)"
+"S4-003-A1","Plan de sauvegarde (quoi, où, quand, comment)"
+"S4-003-A2","Procédure de restauration des données"
+"S4-003-M1","Log de sauvegarde"
+"S4-003-M2","Rapport de test de fonctionnement périodique"
+"S4-004","Gestion du réseau et de la téléphonie ou réseau"
+"S4-004-M1","Formulaire de rapport d'incident téléphonie ou réseau"
+"S5-001","Gestion des stocks de réactifs et consommables"
+"S5-001-A1","Plan de stockage (localisation, conditions)"
+"S5-001-A2","Liste produits sensibles (péremption courte, conditions de stockage strictes)"
+"S5-001-M1","Fiche de stock (LIMS/Excel/papier)"
+"S5-001-M2","Inventaire périodique du stock"
+"S5-001-M3","Registre de suivi des péremptions"
+"S5-001-M4","Fiche de non-conformité produit stocké (dégradation)"
+"S5-002","Expression du besoin et réapprovisionnement"
+"S5-002-A1","Seuils de réapprovisionnement par produit"
+"S5-002-M1","Alerte stock bas (LIMS/manuel)"
+"S5-002-M2","Formulaire de demande de réapprovisionnement"
+"S6-001","Évaluation des risques professionnels"
+"S6-001-A1","Document Unique d'Évaluation des Risques Professionnels (DUERP)"
+"S6-001-A2","Méthodologie d'évaluation des risques"
+"S6-001-M1","Fiche d'analyse de poste de travail"
+"S6-001-M2","Plan d'action de prévention des risques"
+"S6-002","Gestion des Équipements de Protection Individuelle (EPI) et Collective (EPC)"
+"S6-002-A1","Liste des EPI requis par poste/activité"
+"S6-002-A2","Liste des EPC (hottes, purificateur, extincteurs)"
+"S6-002-A3","Programme de vérification périodique des EPC"
+"S6-003","Gestion des produits chimiques dangereux"
+"S6-003-A1","Inventaire des produits chimiques"
+"S6-004","Gestion des risques biologiques"
+"S6-004-A1","Consignes de manipulation des échantillons potentiellement infectieux"
+"S6-004-A2","Protocole en cas d'Accident d'Exposition au Sang (AES)"
+"S6-004-M1","Registre de formation au risque biologique"
+"S6-005","Gestion des déchets"
+"S6-005-A1","Plan de gestion des déchets (tri, stockage, élimination)"
+"S6-006","Gestion des situations d'urgence"
+"S6-006-A1","Plan d'évacuation des locaux"
+"S6-006-A2","Consignes spécifiques (incendie, déversement chimique/biologique, coupure courant)"
+"S6-006-A3","Plan de Continuité d'Activité (PCA)"
+"S6-006-M1","Rapport d'incident/accident HSE"
+"S7-001","Recrutement et intégration du personnel"
+"S7-001-A1","Fiche de fonction Responsable du Laboratoire"
+"S7-001-A2","Fiche de fonction Ingénieur Biologie Moléculaire"
+"S7-001-A3","Fiche de fonction Expert Judiciaire"
+"S7-001-A4","Fiche de fonction Bio-informaticien"
+"S7-001-A5","Fiche de fonction Bio-statisticien"
+"S7-001-A6","Fiche de fonction Technicien Biologie Moléculaire"
+"S7-001-A7","Fiche de fonction Technicien Bio-informatique"
+"S7-001-A8","Fiche de fonction Responsable Qualité"
+"S7-001-A9","Fiche de fonction Responsable Sécurité Incendie"
+"S7-001-A10","Fiche de fonction","Secrétaire"
+"S7-001-A11","Processus de sélection (étapes, entretiens)"
+"S7-001-A12","Programme d'intégration type"
+"S7-001-M1","Formulaire de besoin en recrutement"
+"S7-001-M2","Grille d'entretien de recrutement"
+"S7-001-M3","Fiche d'accueil et parcours d'intégration nouvel arrivant"
+"S7-002","Gestion des compétences"
+"S7-002-A1","Référentiel de compétences par fonction"
+"S7-002-M1","Matrice des compétences du personnel"
+"S7-003","Formation du personnel"
+"S7-003-A1","Plan de formation annuel"
+"S7-003-A2","Catalogue des formations internes/externes"
+"S7-003-M1","Formulaire de demande de formation"
+"S7-003-M2","Fiche d'évaluation de l'efficacité de la formation"
+"S7-003-M3","Attestation de formation/participation"
+"S7-003-M4","Dossier individuel de formation"
+"S7-004","Habilitation du personnel"
+"S7-004-A1","Critères d'habilitation par poste/technique"
+"S7-004-A2","Processus d'évaluation pour l'habilitation (théorique/pratique)"
+"S7-004-M1","Fiche individuelle d'habilitation (avec date, portée, évaluateur)"
+"S7-004-M2","Matrice globale des habilitations du personnel"
+"S7-004-M3","Fiche de suivi du maintien de l'habilitation"
+"S7-005","Gestion des plannings et des permanences"
+"S7-005-A1","Règles de gestion des plannings (horaires, congés, permanences)"
+"S7-005-A2","Procédure de gestion des absences imprévues"
+"S7-005-M1","Planning de travail prévisionnel"
+"S7-005-M2","Planning des permanences/astreintes"
+"S7-005-M3","Formulaire de demande de congé/absence"
+"S7-006","Réalisation des entretiens annuels d'évaluation/professionnels"
+"S7-006-A1","Grille d'entretien annuel type"
+"S7-006-M1","Support d'entretien annuel rempli et signé"
+"S7-006-M2","Synthèse des besoins en formation issus des entretiens"
+"S8-001","Réception, enregistrement et identification unique des scellés/affaires"
+"S8-001-A1","Critères d'acceptation/refus des scellés (intégrité, identification, conformité demande)"
+"S8-001-A2","Protocole d'enregistrement d'une affaire"
+"S8-001-A3","Protocole d'enregistrement scellé"
+"S8-001-A4","Liste des références des emplacements de stockage des scellés"
+"S8-001-M1","Fiche d'enregistrement d'une affaire"
+"S8-001-M2","Fiche/Registre de réception scellés (LIMS/papier)"
+"S8-001-M3","Étiquettes d'identification unique scellé/affaire"
+"S8-001-M4","Fiche de non-conformité à la réception"
+"S8-001-M5","Accusé de réception scellé et prélèvement"
+"S8-001-M6","Preuve de dépôt "
+"S8-002","Stockage sécurisé et traçabilité des scellés"
+"S8-002-A1","Plan des zones de stockage sécurisé (accès contrôlé)"
+"S8-002-A2","Conditions de stockage par type de scellé (T°, humidité)"
+"S8-002-A3","Règles de rangement et d'organisation"
+"S8-002-M1","Formulaire de stockage de scellé"
+"S8-003","Gestion de la chaîne de possession"
+"S8-003-A1","Politique globale de chaîne de possession"
+"S8-003-M1","Formulaire de chaîne de possession (LIMS/papier)"
+"S8-004","Transmission externe d'échantillons/scellés"
+"S8-004-A1","Conditions de transport spécifiques (emballage, température)"
+"S8-004-A2","Liste des transporteurs agréés"
+"S8-004-M1","Bon de transport/expédition"
+"S8-005","Gestion de la restitution ou destruction des scellés/échantillons"
+"S8-005-A1","Instructions pour la destruction sécurisée"
+"S8-005-A2","Cadre légal/réglementaire pour la conservation/destruction"
+"S8-005-M1","Formulaire de demande de restitution"
+"S8-005-M2","Formulaire d'autorisation de restitution"
+"S8-005-M3","Formulaire de demande de destruction"
+"S8-005-M4","Formulaire d'autorisation de destruction"
+"S8-005-M5","Procès-Verbal (PV) de restitution"
+"S8-005-M6","Procès-Verbal (PV) de destruction"
+"S8-005-M7","Courriel : demande d'instruction (conservation, destruction) sur les scellés conservés"
+`;
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- STATE MANAGEMENT ---
+            let smqData = {
+                documentMapping: {},
+                comments: {}
+            };
+            let allDocs = [];
+            let currentEditingReq = null;
+
+            // --- DOM Elements ---
+            const container = document.getElementById('requirements-container');
+            const toc = document.getElementById('toc');
+            const searchInput = document.getElementById('searchInput');
+            const exportJsonBtn = document.getElementById('exportJsonBtn');
+            const importJsonBtn = document.getElementById('importJsonBtn');
+            const jsonFileInput = document.getElementById('jsonFileInput');
+            const modal = {
+                backdrop: document.getElementById('modal-backdrop'),
+                panel: document.getElementById('modal-panel'),
+                title: document.getElementById('modal-title'),
+                closeBtn: document.getElementById('modal-close-btn'),
+                searchInput: document.getElementById('modal-search'),
+                docList: document.getElementById('modal-doc-list'),
+                cancelBtn: document.getElementById('modal-cancel-btn'),
+                saveBtn: document.getElementById('modal-save-btn'),
+            };
+
+            // --- DATA PARSING & PREPARATION ---
+            function parseDocsList(data) {
+                const lines = data.trim().split('\n');
+                return lines.map(line => {
+                    const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+                    const ref = values[0]?.replace(/"/g, '') || '';
+                    const title = values[1]?.replace(/"/g, '') || '';
+                    return { ref, title };
+                }).filter(doc => doc.ref && doc.title);
+            }
+
+            // --- LOCAL STORAGE & FILE I/O ---
+            const SMQ_DATA_STORAGE_KEY = 'iso17025_smq_data';
+
+            function saveSmqDataToLocalStorage() {
+                localStorage.setItem(SMQ_DATA_STORAGE_KEY, JSON.stringify(smqData));
+            }
+
+            function loadSmqDataFromLocalStorage() {
+                const storedData = localStorage.getItem(SMQ_DATA_STORAGE_KEY);
+                const defaultData = { documentMapping: {}, comments: {} };
+                if (storedData) {
+                    try {
+                        const parsedData = JSON.parse(storedData);
+                        // Ensure both keys exist
+                        return {
+                            documentMapping: parsedData.documentMapping || {},
+                            comments: parsedData.comments || {}
+                        };
+                    } catch (e) {
+                        console.error("Error parsing SMQ data from localStorage", e);
+                        return defaultData;
+                    }
+                }
+                return defaultData;
+            }
+
+            function exportToJsonFile() {
+                const dataStr = JSON.stringify(smqData, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                const exportFileDefaultName = 'smq_data_iso17025.json';
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+            }
+
+            function importFromJsonFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const newSmqData = JSON.parse(e.target.result);
+                        if (typeof newSmqData === 'object' && newSmqData !== null && ('documentMapping' in newSmqData || 'comments' in newSmqData)) {
+                            smqData = {
+                                documentMapping: newSmqData.documentMapping || {},
+                                comments: newSmqData.comments || {}
+                            };
+                            saveSmqDataToLocalStorage();
+                            renderApp();
+                            alert('Données SMQ chargées avec succès !');
+                        } else {
+                           throw new Error("Format JSON invalide ou manquant.");
+                        }
+                    } catch (error) {
+                        alert(`Erreur lors du chargement du fichier JSON: ${error.message}`);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            }
+
+            // --- DYNAMIC RENDERING ---
+            function renderApp() {
+                container.innerHTML = '';
+                toc.innerHTML = '';
+                
+                requirementsData.forEach(req => {
+                    container.appendChild(createRequirementCard(req));
+                    toc.appendChild(renderTocLink(req));
+                });
+                
+                addEventListenersToCards();
+                updateTocHighlighting();
+            }
+
+            function createRequirementCard(req, level = 0) {
+                const reqId = `req-${req.id.replace(/\./g, '-')}`;
+                const originalId = req.id;
+                const card = document.createElement('div');
+                card.id = reqId;
+                
+                let contentHtml = '';
+
+                if (!req.children || req.children.length === 0) {
+                    card.className = 'requirement-card bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200';
+                    const associatedDocs = smqData.documentMapping[originalId] || [];
+
+                    contentHtml = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-md sm:text-lg font-bold text-gray-800">${req.id}</h3>
+                                <div class="mt-2 prose prose-sm max-w-none text-gray-600">${req.text ? req.text.join('<br>') : ''}</div>
+                            </div>
+                            <button data-req-id="${originalId}" class="manage-docs-btn flex-shrink-0 ml-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg text-sm transition">
+                                Gérer Docs
+                            </button>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <h4 class="text-sm font-semibold text-gray-500 mb-2">Documents Associés (${associatedDocs.length})</h4>
+                            <div class="associated-docs-container flex flex-wrap gap-2">
+                                ${renderAssociatedDocs(associatedDocs)}
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-200 comment-section" data-req-id="${originalId}">
+                             <h4 class="text-sm font-semibold text-gray-500 mb-2">Commentaires</h4>
+                             <div class="comment-display-container">
+                                ${renderCommentDisplay(originalId)}
+                             </div>
+                             <div class="comment-edit-container hidden mt-2">
+                                 <textarea class="w-full p-2 border rounded-md text-sm focus:ring-blue-500 focus:border-blue-500" rows="3"></textarea>
+                                 <div class="mt-2 flex justify-end space-x-2">
+                                     <button class="cancel-comment-btn text-sm font-medium text-gray-600 hover:text-black px-3 py-1 rounded-md">Annuler</button>
+                                     <button class="save-comment-btn text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md">Enregistrer</button>
+                                 </div>
+                             </div>
+                        </div>
+                        `;
+                } else {
+                    card.className = 'requirement-chapter space-y-4';
+                    contentHtml = `<h2 class="text-xl sm:text-2xl font-bold text-blue-700" id="${reqId}">${req.title}</h2>`;
+                    req.children.forEach(child => {
+                        contentHtml += createRequirementCard(child, level + 1).outerHTML;
+                    });
+                }
+                
+                card.innerHTML = contentHtml;
+                return card;
+            }
+
+            function renderTocLink(req, level = 0) {
+                const reqId = `req-${req.id.replace(/\./g, '-')}`;
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = `#${reqId}`;
+                a.textContent = req.title;
+                a.className = `toc-link block hover:bg-gray-100 transition-colors duration-200 p-2 rounded-md`;
+                if (level === 0) a.classList.add('font-bold', 'text-lg', 'text-gray-900');
+                else if (level === 1) {
+                    a.classList.add('font-semibold', 'text-gray-700');
+                    a.style.paddingLeft = `${level * 0.75}rem`;
+                } else {
+                    a.classList.add('text-sm');
+                    a.style.paddingLeft = `${level * 1.5}rem`;
+                }
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetElement = document.getElementById(reqId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        window.history.pushState(null, '', `#${reqId}`);
+                    }
+                });
+                li.appendChild(a);
+
+                if (req.children) {
+                    const ul = document.createElement('ul');
+                    ul.className = 'mt-1 space-y-1';
+                    req.children.forEach(child => ul.appendChild(renderTocLink(child, level + 1)));
+                    li.appendChild(ul);
+                }
+                return li;
+            }
+            
+            function renderAssociatedDocs(docs) {
+                 if (docs.length === 0) return `<div class="flex items-center text-xs text-gray-500"><span>Aucun document associé.</span></div>`;
+                return docs.map(doc => `<span class="doc-ref bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">${doc}</span>`).join('');
+            }
+            
+            function renderCommentDisplay(reqId) {
+                const comment = smqData.comments[reqId] || '';
+                const escapedComment = comment.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                
+                if (comment) {
+                    return `
+                        <pre class="text-sm text-gray-800">${escapedComment}</pre>
+                        <button class="edit-comment-btn text-blue-600 text-xs font-semibold mt-2 hover:underline">Éditer le commentaire</button>
+                    `;
+                } else {
+                    return `
+                        <p class="text-sm text-gray-500 italic">Aucun commentaire.</p>
+                        <button class="add-comment-btn text-blue-600 text-xs font-semibold mt-2 hover:underline">Ajouter un commentaire</button>
+                    `;
+                }
+            }
+
+            // --- MODAL LOGIC FOR DOCS ---
+            function openModal(reqId) {
+                currentEditingReq = reqId;
+                const req = findRequirementById(requirementsData, reqId);
+                modal.title.textContent = `Exigence: ${req.id}`;
+                
+                const associatedDocs = smqData.documentMapping[reqId] || [];
+                modal.docList.innerHTML = '';
+                allDocs.forEach(doc => {
+                    const isChecked = associatedDocs.includes(doc.ref);
+                    const checkboxHtml = `
+                        <label class="flex items-center p-2 rounded-md hover:bg-gray-100 cursor-pointer doc-item-label">
+                            <input type="checkbox" value="${doc.ref}" ${isChecked ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-3 text-sm">
+                                <span class="font-bold text-gray-800">${doc.ref}</span>
+                                <span class="text-gray-600 ml-2">${doc.title}</span>
+                            </span>
+                        </label>`;
+                    modal.docList.insertAdjacentHTML('beforeend', checkboxHtml);
+                });
+                
+                modal.backdrop.classList.remove('hidden');
+            }
+
+            function closeModal() {
+                modal.backdrop.classList.add('hidden');
+                currentEditingReq = null;
+                modal.searchInput.value = '';
+            }
+
+            function saveModalChanges() {
+                if (!currentEditingReq) return;
+                const selectedDocs = Array.from(modal.docList.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+                smqData.documentMapping[currentEditingReq] = selectedDocs;
+                saveSmqDataToLocalStorage();
+                // Update UI for the specific card
+                const reqCard = document.querySelector(`button[data-req-id="${currentEditingReq}"]`).closest('.requirement-card');
+                if (reqCard) {
+                    const docsContainer = reqCard.querySelector('.associated-docs-container');
+                    docsContainer.innerHTML = renderAssociatedDocs(selectedDocs);
+                    const countEl = reqCard.querySelector('h4');
+                    if(countEl) countEl.textContent = `Documents Associés (${selectedDocs.length})`;
+                }
+                closeModal();
+            }
+            
+            function filterModalDocs() {
+                const searchTerm = modal.searchInput.value.toLowerCase();
+                const labels = modal.docList.querySelectorAll('.doc-item-label');
+                labels.forEach(label => {
+                    label.style.display = label.textContent.toLowerCase().includes(searchTerm) ? 'flex' : 'none';
+                });
+            }
+
+            // --- EVENT LISTENERS ---
+            function addEventListenersToCards() {
+                container.addEventListener('click', function(e) {
+                    const reqId = e.target.closest('.comment-section')?.dataset.reqId;
+                    if (!reqId) { // For doc management
+                         const docBtn = e.target.closest('.manage-docs-btn');
+                         if(docBtn) openModal(docBtn.dataset.reqId);
+                         return;
+                    }
+
+                    const commentSection = e.target.closest('.comment-section');
+                    const displayContainer = commentSection.querySelector('.comment-display-container');
+                    const editContainer = commentSection.querySelector('.comment-edit-container');
+                    const textarea = editContainer.querySelector('textarea');
+
+                    // Click on "Ajouter" or "Éditer"
+                    if (e.target.matches('.add-comment-btn, .edit-comment-btn')) {
+                        textarea.value = smqData.comments[reqId] || '';
+                        displayContainer.classList.add('hidden');
+                        editContainer.classList.remove('hidden');
+                        textarea.focus();
+                    }
+
+                    // Click on "Annuler"
+                    if (e.target.matches('.cancel-comment-btn')) {
+                        displayContainer.classList.remove('hidden');
+                        editContainer.classList.add('hidden');
+                    }
+
+                    // Click on "Enregistrer"
+                    if (e.target.matches('.save-comment-btn')) {
+                        smqData.comments[reqId] = textarea.value.trim();
+                        saveSmqDataToLocalStorage();
+                        displayContainer.innerHTML = renderCommentDisplay(reqId);
+                        displayContainer.classList.remove('hidden');
+                        editContainer.classList.add('hidden');
+                    }
+                });
+            }
+
+            function setupGlobalEventListeners() {
+                modal.closeBtn.addEventListener('click', closeModal);
+                modal.cancelBtn.addEventListener('click', closeModal);
+                modal.backdrop.addEventListener('click', (e) => { if (e.target === modal.backdrop) closeModal(); });
+                modal.saveBtn.addEventListener('click', saveModalChanges);
+                modal.searchInput.addEventListener('input', filterModalDocs);
+                exportJsonBtn.addEventListener('click', exportToJsonFile);
+                importJsonBtn.addEventListener('click', () => jsonFileInput.click());
+                jsonFileInput.addEventListener('change', importFromJsonFile);
+                searchInput.addEventListener('input', () => {
+                     const searchTerm = searchInput.value.toLowerCase().trim();
+                     document.querySelectorAll('.requirement-chapter, .requirement-card').forEach(el => {
+                         el.style.display = el.textContent.toLowerCase().includes(searchTerm) ? 'block' : 'none';
+                     });
+                });
+            }
+            
+            // --- UTILITY & INIT ---
+            function findRequirementById(data, id) {
+                for (const item of data) {
+                    if (item.id === id) return item;
+                    if (item.children) {
+                        const found = findRequirementById(item.children, id);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+
+            function updateTocHighlighting() {
+                const allSections = document.querySelectorAll('[id^="req-"]');
+                const tocLinks = document.querySelectorAll('.toc-link');
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        const link = document.querySelector(`.toc-link[href="#${entry.target.id}"]`);
+                        if (entry.isIntersecting) {
+                            link?.classList.add('active');
+                        } else {
+                            link?.classList.remove('active');
+                        }
+                    });
+                }, { rootMargin: "-100px 0px -60% 0px", threshold: 0 });
+                allSections.forEach(section => { if(section) observer.observe(section); });
+            }
+
+            function init() {
+                allDocs = parseDocsList(csvData);
+                smqData = loadSmqDataFromLocalStorage();
+                renderApp();
+                setupGlobalEventListeners();
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
